@@ -1,0 +1,126 @@
+package ru.skelantros.coscheduler.worker
+
+import cats.effect.IO
+import cats.implicits.catsSyntaxApplicativeId
+import com.spotify.docker.client.{DockerClient, LogStream}
+import com.spotify.docker.client.DockerClient.LogsParam
+import com.spotify.docker.client.messages.ContainerConfig
+import fs2._
+import ru.skelantros.coscheduler.model.Task
+import ru.skelantros.coscheduler.worker.docker.DockerClientResource
+import ru.skelantros.coscheduler.worker.endpoints.{EndpointError, ServerResponse, WorkerEndpoints}
+import sttp.capabilities.fs2.Fs2Streams
+import sttp.tapir.Endpoint
+import sttp.tapir._
+import sttp.tapir.server.ServerEndpoint
+
+import java.io.File
+import java.nio.file.{Files, Path, Paths}
+import java.util.UUID
+import scala.concurrent.duration.DurationInt
+
+class WorkerServerLogic(configuration: WorkerConfiguration) {
+    def createDirectory(dir: File): IO[Unit] = {
+        import scala.sys.process._
+        IO(s"mkdir $dir".!) >> IO.unit
+    }
+
+    def unpackTar(src: File, targetDir: File): IO[Unit] = {
+        import scala.sys.process._
+        createDirectory(targetDir) >> IO(s"tar -xvzf $src -C $targetDir".!).flatMap {
+            case 0 => IO.unit
+            case code => IO.raiseError(new Exception(s"error code when unpacking $src: $code"))
+        }
+    }
+
+    private val uuid: IO[String] = IO(UUID.randomUUID().toString)
+
+    @inline
+    private def serverLogic[I, O](endpoint: Endpoint[Unit, I, EndpointError, O, Fs2Streams[IO]])(logic: I => IO[ServerResponse[O]]) =
+        endpoint.serverLogic { input =>
+            logic(input).handleErrorWith(t => IO(ServerResponse.internalError(t.toString)))
+        }
+
+    private def taskLogic[I <: Task, O](endpoint: Endpoint[Unit, I, EndpointError, O, Fs2Streams[IO]])(logic: I => IO[ServerResponse[O]]) =
+        serverLogic(endpoint) { task =>
+            if (task.node != configuration.node)
+                IO.pure(ServerResponse.badRequest(s"Task ${task.id} is located on node ${task.node}."))
+            else
+                logic(task)
+        }
+
+    final val build = serverLogic(WorkerEndpoints.build) { imageArchive =>
+        for {
+            id <- uuid
+            _ <- unpackTar(imageArchive.file, new File(configuration.imagesFolder, id))
+            imageId <- DockerClientResource(_.build(Paths.get(configuration.imagesFolder, id)))
+            task = Task.Built(Task.TaskId(id), configuration.node, imageId)
+        } yield ServerResponse(task)
+    }
+
+    final val create = taskLogic(WorkerEndpoints.create) { task =>
+        val containerConfig = ContainerConfig.builder().image(task.imageId).build()
+        for {
+            createResult <- DockerClientResource(_.createContainer(containerConfig))
+        } yield ServerResponse(task.copy(containerId = createResult.id))
+    }
+
+    final val start = taskLogic(WorkerEndpoints.start) { task =>
+        if(task.isRunning)
+            IO.pure(ServerResponse.badRequest(s"A container for ${task.id} is already running."))
+        else
+            DockerClientResource(_.startContainer(task.containerId)) >> IO.pure(ServerResponse(task.copy(isRunning = true)))
+    }
+
+    final val pause = taskLogic(WorkerEndpoints.pause) { task =>
+        if(task.isPaused)
+            IO.pure(ServerResponse.badRequest(s"A container for ${task.id} is already paused."))
+        else if (!task.isRunning)
+            IO.pure(ServerResponse.badRequest(s"A container for ${task.id} is not running."))
+        else
+            DockerClientResource(_.pauseContainer(task.containerId)) >> IO.pure(ServerResponse(task.copy(isPaused = true)))
+    }
+
+    final val resume = taskLogic(WorkerEndpoints.resume) { task =>
+        if(!task.isPaused)
+            IO.pure(ServerResponse.badRequest(s"A container for ${task.id} is not paused."))
+        else if(!task.isRunning)
+            IO.pure(ServerResponse.badRequest(s"A container for ${task.id} is not running."))
+        else
+            DockerClientResource(_.unpauseContainer(task.containerId)) >> IO.pure(ServerResponse(task.copy(isPaused = false)))
+    }
+
+    final val stop = taskLogic(WorkerEndpoints.stop) { task =>
+        if(!task.isRunning)
+            IO.pure(ServerResponse.badRequest(s"A container for ${task.id} is not running."))
+        else
+            DockerClientResource(_.stopContainer(task.containerId, 666)) >> IO.pure(ServerResponse(task.copy(isPaused = false, isRunning = false)))
+    }
+
+    final val isCompleted = taskLogic(WorkerEndpoints.isCompleted) { task =>
+        for {
+            containerState <- DockerClientResource(_.inspectContainer(task.containerId).state)
+            isCompleted = !containerState.running
+        } yield ServerResponse(isCompleted)
+    }
+
+    final val taskLogs = taskLogic(WorkerEndpoints.taskLogs) { task =>
+        for {
+            logs <- DockerClientResource(_.logs(task.containerId, LogsParam.stdout, LogsParam.stderr))
+            stringStream = fs2.Stream.unfold[IO, LogStream, String](logs)(remLogs => if(remLogs.hasNext) Some((remLogs.next.toString, remLogs)) else None)
+            charStream = stringStream.flatMap(str => Stream.chunk(Chunk.array(str.toCharArray)))
+            byteStream = charStream.map(_.toByte)
+        } yield ServerResponse(byteStream)
+    }
+
+    final val routes: List[ServerEndpoint[Fs2Streams[IO], IO]] = List(
+        build,
+        create,
+        start,
+        pause,
+        resume,
+        stop,
+        isCompleted,
+        taskLogs
+    )
+}
