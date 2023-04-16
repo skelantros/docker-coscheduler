@@ -30,7 +30,7 @@ class WorkerServerLogic(configuration: WorkerConfiguration) {
         }
     }
 
-    private val uuid: IO[String] = IO(UUID.randomUUID().toString)
+    private val uuid: IO[String] = IO(UUID.randomUUID().toString.filter(_ != '-'))
 
     @inline
     private def serverLogic[I, O](endpoint: Endpoint[Unit, I, EndpointError, O, Fs2Streams[IO]])(logic: I => IO[ServerResponse[O]]) =
@@ -46,12 +46,24 @@ class WorkerServerLogic(configuration: WorkerConfiguration) {
                 logic(task)
         }
 
-    final val build = serverLogic(WorkerEndpoints.build) { imageArchive =>
+    private def containerState(task: Task.Created) =
+        DockerClientResource(_.inspectContainer(task.containerId)).map(_.state)
+
+    private def buildImage(taskId: String, imageIdOpt: Option[String]) = {
+        val path = Paths.get(configuration.imagesFolder, taskId)
+
+        imageIdOpt match {
+            case Some(imageId) => DockerClientResource(_.build(path, imageId)) // FIXME
+            case _ => DockerClientResource(_.build(path))
+        }
+    }
+
+    final val build = serverLogic(WorkerEndpoints.build) { case (imageArchive, imageId) =>
         for {
-            id <- uuid
-            _ <- unpackTar(imageArchive.file, new File(configuration.imagesFolder, id))
-            imageId <- DockerClientResource(_.build(Paths.get(configuration.imagesFolder, id)))
-            task = Task.Built(Task.TaskId(id), configuration.node, imageId)
+            taskId <- uuid
+            _ <- unpackTar(imageArchive.file, new File(configuration.imagesFolder, taskId))
+            imageId <- buildImage(taskId, None) // FIXME
+            task = Task.Built(Task.TaskId(taskId), configuration.node, imageId)
         } yield ServerResponse(task)
     }
 
@@ -63,42 +75,47 @@ class WorkerServerLogic(configuration: WorkerConfiguration) {
     }
 
     final val start = taskLogic(WorkerEndpoints.start) { task =>
-        if(task.isRunning)
-            IO.pure(ServerResponse.badRequest(s"A container for ${task.id} is already running."))
-        else
-            DockerClientResource(_.startContainer(task.containerId)) >> IO.pure(ServerResponse(task.copy(isRunning = true)))
+        for {
+            state <- containerState(task)
+            result <-
+                if(state.running) IO.pure(ServerResponse.badRequest(s"A container for ${task.id} is already running."))
+                else DockerClientResource(_.startContainer(task.containerId)) >> IO.pure(ServerResponse(task))
+        } yield result
     }
 
     final val pause = taskLogic(WorkerEndpoints.pause) { task =>
-        if(task.isPaused)
-            IO.pure(ServerResponse.badRequest(s"A container for ${task.id} is already paused."))
-        else if (!task.isRunning)
-            IO.pure(ServerResponse.badRequest(s"A container for ${task.id} is not running."))
-        else
-            DockerClientResource(_.pauseContainer(task.containerId)) >> IO.pure(ServerResponse(task.copy(isPaused = true)))
+        for {
+            state <- containerState(task)
+            result <-
+                if(state.paused) IO.pure(ServerResponse.badRequest(s"A container for ${task.id} is already paused."))
+                else if(!state.running) IO.pure(ServerResponse.badRequest(s"A container for ${task.id} is not running."))
+                else DockerClientResource(_.pauseContainer(task.containerId)) >> IO.pure(ServerResponse(task))
+        } yield result
     }
 
     final val resume = taskLogic(WorkerEndpoints.resume) { task =>
-        if(!task.isPaused)
-            IO.pure(ServerResponse.badRequest(s"A container for ${task.id} is not paused."))
-        else if(!task.isRunning)
-            IO.pure(ServerResponse.badRequest(s"A container for ${task.id} is not running."))
-        else
-            DockerClientResource(_.unpauseContainer(task.containerId)) >> IO.pure(ServerResponse(task.copy(isPaused = false)))
+        for {
+            state <- containerState(task)
+            result <-
+                if(!state.paused) IO.pure(ServerResponse.badRequest(s"A container for ${task.id} is not paused."))
+                else if(!state.running) IO.pure(ServerResponse.badRequest(s"A container for ${task.id} is not running."))
+                else DockerClientResource(_.unpauseContainer(task.containerId)) >> IO.pure(ServerResponse(task))
+        } yield result
     }
 
     final val stop = taskLogic(WorkerEndpoints.stop) { task =>
-        if(!task.isRunning)
-            IO.pure(ServerResponse.badRequest(s"A container for ${task.id} is not running."))
-        else
-            DockerClientResource(_.stopContainer(task.containerId, 1)) >> IO.pure(ServerResponse(task.copy(isPaused = false, isRunning = false)))
+        for {
+            state <- containerState(task)
+            result <-
+                if(!state.running) IO.pure(ServerResponse.badRequest(s"A container for ${task.id} is not running."))
+                else DockerClientResource(_.stopContainer(task.containerId, 1)) >> IO.pure(ServerResponse(task))
+        } yield result
     }
 
-    final val isCompleted = taskLogic(WorkerEndpoints.isCompleted) { task =>
+    final val isRunning = taskLogic(WorkerEndpoints.isRunning) { task =>
         for {
             containerState <- DockerClientResource(_.inspectContainer(task.containerId).state)
-            isCompleted = !containerState.running
-        } yield ServerResponse(isCompleted)
+        } yield ServerResponse(containerState.running)
     }
 
     // FIXME
@@ -121,7 +138,7 @@ class WorkerServerLogic(configuration: WorkerConfiguration) {
         pause,
         resume,
         stop,
-        isCompleted,
+        isRunning,
         taskLogs
     )
 }

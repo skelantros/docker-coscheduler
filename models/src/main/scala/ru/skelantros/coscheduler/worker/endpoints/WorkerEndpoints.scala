@@ -25,6 +25,7 @@ object WorkerEndpoints {
     final val build = baseEndpoint.post
         .in("build")
         .in(imageArchiveBody)
+        .in(query[Option[String]]("imageId"))
         .out(builtBody)
 
     private def taskEndpoint = baseEndpoint.post.in(createdBody).out(createdBody)
@@ -39,8 +40,8 @@ object WorkerEndpoints {
         .in(createdBody)
         .out(streamTextBody(Fs2Streams[IO])(CodecFormat.TextPlain(), Some(StandardCharsets.UTF_8)))
 
-    final val isCompleted = baseEndpoint.post
-        .in("completed")
+    final val isRunning = baseEndpoint.post
+        .in("running")
         .in(createdBody)
         .out(jsonBody[Boolean])
 }
