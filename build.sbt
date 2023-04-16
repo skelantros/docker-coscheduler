@@ -45,7 +45,7 @@ lazy val models = (project in file("models"))
 lazy val mainModule = (project in file("main-module"))
     .dependsOn(models)
     .settings(
-        libraryDependencies ++= Seq(cats, catsEffect)
+        libraryDependencies ++= http4s ++ sttpClientDeps ++ Seq(cats, catsEffect, pureconfig)
     )
 
 lazy val workerModule = (project in file("worker-module"))

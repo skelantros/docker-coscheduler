@@ -1,20 +1,17 @@
 package ru.skelantros.coscheduler.worker.endpoints
 
 import cats.effect.IO
+import ru.skelantros.coscheduler.image.ImageArchive
 import ru.skelantros.coscheduler.model.Task
-import ru.skelantros.coscheduler.utils.ImageArchive
 import sttp.capabilities.fs2.Fs2Streams
 import sttp.tapir._
 import sttp.tapir.generic.auto._
 import sttp.tapir.json.circe._
 
-import java.nio.charset.{Charset, StandardCharsets}
+import java.nio.charset.StandardCharsets
 
 object WorkerEndpoints {
     private val baseEndpoint = endpoint.in("docker").errorOut(jsonBody[EndpointError])
-
-//    private val imageArchiveBody =
-//        fileBody.mapDecode(file => DecodeResult.fromOption(ImageArchive(file).toOption))(_.file)
 
     private val imageArchiveBody =
         fileBody.mapDecode(file => DecodeResult.fromOption(Some(ImageArchive(file))))(_.file)

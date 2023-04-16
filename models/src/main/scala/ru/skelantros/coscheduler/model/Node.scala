@@ -1,9 +1,8 @@
 package ru.skelantros.coscheduler.model
 
-import io.circe.{Codec, Decoder, Encoder}
 import io.circe.generic.semiauto.deriveCodec
+import io.circe.{Codec, Decoder, Encoder}
 import sttp.model.Uri
-import sttp.tapir.Schema
 
 case class Node(id: String, uri: Uri)
 

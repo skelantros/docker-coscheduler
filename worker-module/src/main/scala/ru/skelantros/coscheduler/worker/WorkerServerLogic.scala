@@ -7,7 +7,7 @@ import com.spotify.docker.client.messages.ContainerConfig
 import fs2._
 import ru.skelantros.coscheduler.model.Task
 import ru.skelantros.coscheduler.worker.docker.DockerClientResource
-import ru.skelantros.coscheduler.worker.endpoints.{EndpointError, ServerResponse, WorkerEndpoints}
+import ru.skelantros.coscheduler.worker.endpoints.{AppEndpoint, EndpointError, ServerResponse, WorkerEndpoints}
 import sttp.capabilities.fs2.Fs2Streams
 import sttp.tapir.Endpoint
 import sttp.tapir.server.ServerEndpoint
@@ -33,12 +33,12 @@ class WorkerServerLogic(configuration: WorkerConfiguration) {
     private val uuid: IO[String] = IO(UUID.randomUUID().toString.filter(_ != '-'))
 
     @inline
-    private def serverLogic[I, O](endpoint: Endpoint[Unit, I, EndpointError, O, Fs2Streams[IO]])(logic: I => IO[ServerResponse[O]]) =
+    private def serverLogic[I, O](endpoint: AppEndpoint[I, O])(logic: I => IO[ServerResponse[O]]) =
         endpoint.serverLogic { input =>
             logic(input).handleErrorWith(t => IO(ServerResponse.internalError(t.toString)))
         }
 
-    private def taskLogic[I <: Task, O](endpoint: Endpoint[Unit, I, EndpointError, O, Fs2Streams[IO]])(logic: I => IO[ServerResponse[O]]) =
+    private def taskLogic[I <: Task, O](endpoint: AppEndpoint[I, O])(logic: I => IO[ServerResponse[O]]) =
         serverLogic(endpoint) { task =>
             if (task.node != configuration.node)
                 IO.pure(ServerResponse.badRequest(s"Task ${task.id} is located on node ${task.node}."))

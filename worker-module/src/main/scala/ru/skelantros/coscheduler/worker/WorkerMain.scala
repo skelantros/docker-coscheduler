@@ -18,7 +18,7 @@ object WorkerMain extends IOApp {
 
     private def workerConfiguration(nodeName: String, nodeFolder: String, host: Ipv4Address, port: Port) =
         for {
-            uri <- Uri.parse(s"$host:$port").toOption
+            uri <- Uri.parse(s"http://$host:$port").toOption
         } yield WorkerConfiguration(nodeFolder, model.Node(nodeName, uri))
 
     private def makeServer(nodeName: String, nodeFolder: String, host: Ipv4Address, port: Port) =
