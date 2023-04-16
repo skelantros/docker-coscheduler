@@ -1,4 +1,4 @@
-package ru.skelantros.coscheduler.system
+package ru.skelantros.coscheduler.main.system
 
 import cats.effect.IO
 import ru.skelantros.coscheduler.model.Node

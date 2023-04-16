@@ -1,8 +1,10 @@
 package ru.skelantros.coscheduler.worker
 
+import cats.effect.IO
 import io.circe.{Decoder, Encoder}
+import sttp.capabilities.fs2.Fs2Streams
 import sttp.model.{StatusCode, Uri}
-import sttp.tapir.Schema
+import sttp.tapir.{Endpoint, Schema}
 
 package object endpoints {
     implicit val statusCodeEncoder: Encoder[StatusCode] =
@@ -23,4 +25,6 @@ package object endpoints {
         def notFound[A](msg: String = ""): ServerResponse[A] = error(StatusCode.NotFound, msg)
         def internalError[A](msg: String = ""): ServerResponse[A] = error(StatusCode.InternalServerError, msg)
     }
+
+    type AppEndpoint[I, O] = Endpoint[Unit, I, EndpointError, O, Fs2Streams[IO]]
 }
