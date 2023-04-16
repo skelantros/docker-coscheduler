@@ -9,7 +9,8 @@ import sttp.tapir.server.http4s.Http4sServerInterpreter
 
 object WorkerMain extends IOApp {
     val port = 9876
-    val workerConfiguration = WorkerConfiguration("/home/skelantros/docker_experiments/node1", model.Node("node1", uri"localhost:8080/$port"))
+    val workerConfiguration = WorkerConfiguration("/home/skelantros/docker_experiments/node1", model.Node("node1", uri"localhost:$port"))
+    println(workerConfiguration)
     val serverLogic = new WorkerServerLogic(workerConfiguration)
     val routes = Http4sServerInterpreter[IO].toRoutes(serverLogic.routes).orNotFound
 

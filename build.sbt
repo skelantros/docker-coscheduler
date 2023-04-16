@@ -30,7 +30,7 @@ lazy val http4s = Seq(
     "org.http4s" %% "http4s-ember-client" % http4sVersion
 )
 
-lazy val logging = "org.slf4j" % "slf4j-simple"
+lazy val logging = "org.slf4j" % "slf4j-simple" % "2.0.7"
 
 lazy val root = (project in file("."))
   .settings(
@@ -57,5 +57,5 @@ lazy val workerModule = (project in file("worker-module"))
 lazy val sandbox = (project in file("sandbox"))
     .dependsOn(models)
     .settings(
-        libraryDependencies ++= sttpClientDeps ++ tapirDeps ++ http4s
+        libraryDependencies ++= sttpClientDeps ++ tapirDeps ++ http4s :+ dockerClient
     )

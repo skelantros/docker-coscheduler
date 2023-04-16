@@ -28,7 +28,7 @@ object WorkerEndpoints {
         .out(builtBody)
 
     private def taskEndpoint = baseEndpoint.post.in(createdBody).out(createdBody)
-    final val create = taskEndpoint.in("create")
+    final val create = baseEndpoint.post.in(builtBody).out(createdBody)
     final val start = taskEndpoint.in("start")
     final val pause = taskEndpoint.in("pause")
     final val resume = taskEndpoint.in("resume")

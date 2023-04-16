@@ -1,9 +1,8 @@
 package ru.skelantros.coscheduler.worker
 
 import cats.effect.IO
-import cats.implicits.catsSyntaxApplicativeId
-import com.spotify.docker.client.{DockerClient, LogStream}
 import com.spotify.docker.client.DockerClient.LogsParam
+import com.spotify.docker.client.LogStream
 import com.spotify.docker.client.messages.ContainerConfig
 import fs2._
 import ru.skelantros.coscheduler.model.Task
@@ -11,23 +10,21 @@ import ru.skelantros.coscheduler.worker.docker.DockerClientResource
 import ru.skelantros.coscheduler.worker.endpoints.{EndpointError, ServerResponse, WorkerEndpoints}
 import sttp.capabilities.fs2.Fs2Streams
 import sttp.tapir.Endpoint
-import sttp.tapir._
 import sttp.tapir.server.ServerEndpoint
 
 import java.io.File
-import java.nio.file.{Files, Path, Paths}
+import java.nio.file.Paths
 import java.util.UUID
-import scala.concurrent.duration.DurationInt
 
 class WorkerServerLogic(configuration: WorkerConfiguration) {
-    def createDirectory(dir: File): IO[Unit] = {
+    private def createDirectory(dir: File): IO[Unit] = {
         import scala.sys.process._
         IO(s"mkdir $dir".!) >> IO.unit
     }
 
-    def unpackTar(src: File, targetDir: File): IO[Unit] = {
+    private def unpackTar(src: File, targetDir: File): IO[Unit] = {
         import scala.sys.process._
-        createDirectory(targetDir) >> IO(s"tar -xvzf $src -C $targetDir".!).flatMap {
+        createDirectory(targetDir) >> IO(s"tar -xzf $src -C $targetDir".!).flatMap {
             case 0 => IO.unit
             case code => IO.raiseError(new Exception(s"error code when unpacking $src: $code"))
         }
@@ -62,7 +59,7 @@ class WorkerServerLogic(configuration: WorkerConfiguration) {
         val containerConfig = ContainerConfig.builder().image(task.imageId).build()
         for {
             createResult <- DockerClientResource(_.createContainer(containerConfig))
-        } yield ServerResponse(task.copy(containerId = createResult.id))
+        } yield ServerResponse(task.created(createResult.id))
     }
 
     final val start = taskLogic(WorkerEndpoints.start) { task =>
@@ -94,7 +91,7 @@ class WorkerServerLogic(configuration: WorkerConfiguration) {
         if(!task.isRunning)
             IO.pure(ServerResponse.badRequest(s"A container for ${task.id} is not running."))
         else
-            DockerClientResource(_.stopContainer(task.containerId, 666)) >> IO.pure(ServerResponse(task.copy(isPaused = false, isRunning = false)))
+            DockerClientResource(_.stopContainer(task.containerId, 1)) >> IO.pure(ServerResponse(task.copy(isPaused = false, isRunning = false)))
     }
 
     final val isCompleted = taskLogic(WorkerEndpoints.isCompleted) { task =>
@@ -104,13 +101,17 @@ class WorkerServerLogic(configuration: WorkerConfiguration) {
         } yield ServerResponse(isCompleted)
     }
 
+    // FIXME
+    private def fs2LogStream(logStream: LogStream) = {
+        fs2.Stream.unfold[IO, LogStream, String](logStream)(remLogs => if(remLogs.hasNext) Some((new String(remLogs.next.content().array()), remLogs)) else {remLogs.close(); None})
+            .flatMap(str => Stream.chunk(Chunk.array(str.toCharArray)))
+            .map(_.toByte)
+    }
+
     final val taskLogs = taskLogic(WorkerEndpoints.taskLogs) { task =>
         for {
             logs <- DockerClientResource(_.logs(task.containerId, LogsParam.stdout, LogsParam.stderr))
-            stringStream = fs2.Stream.unfold[IO, LogStream, String](logs)(remLogs => if(remLogs.hasNext) Some((remLogs.next.toString, remLogs)) else None)
-            charStream = stringStream.flatMap(str => Stream.chunk(Chunk.array(str.toCharArray)))
-            byteStream = charStream.map(_.toByte)
-        } yield ServerResponse(byteStream)
+        } yield ServerResponse(fs2LogStream(logs))
     }
 
     final val routes: List[ServerEndpoint[Fs2Streams[IO], IO]] = List(
