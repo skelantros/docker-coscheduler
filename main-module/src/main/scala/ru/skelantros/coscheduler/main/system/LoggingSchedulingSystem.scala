@@ -9,8 +9,8 @@ import ru.skelantros.coscheduler.model.{Node, Task}
 trait LoggingSchedulingSystem extends SchedulingSystem {
     private def log(msg: => String): IO[Unit] = IO.println(msg)
 
-    abstract override def buildTask(node: Node)(image: ImageArchive, imageName: Option[String]): IO[Task.Built] =
-        super.buildTask(node)(image, imageName) <* log(s"buildTask($node)($image, $imageName)")
+    abstract override def buildTask(node: Node)(image: ImageArchive, taskName: String): IO[Task.Built] =
+        super.buildTask(node)(image, taskName) <* log(s"buildTask($node)($image, $taskName)")
 
     abstract override def createTask(task: Task.Built): IO[Task.Created] =
         super.createTask(task) <* log(s"createTask($task)")

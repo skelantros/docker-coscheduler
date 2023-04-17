@@ -7,13 +7,11 @@ import com.spotify.docker.client.messages.ContainerConfig
 import fs2._
 import ru.skelantros.coscheduler.model.Task
 import ru.skelantros.coscheduler.worker.docker.DockerClientResource
-import ru.skelantros.coscheduler.worker.endpoints.{AppEndpoint, EndpointError, ServerResponse, WorkerEndpoints}
+import ru.skelantros.coscheduler.worker.endpoints.{AppEndpoint, ServerResponse, WorkerEndpoints}
 import sttp.capabilities.fs2.Fs2Streams
-import sttp.tapir.Endpoint
 import sttp.tapir.server.ServerEndpoint
 
 import java.io.File
-import java.nio.file.Paths
 import java.util.UUID
 
 class WorkerServerLogic(configuration: WorkerConfiguration) {
@@ -49,21 +47,13 @@ class WorkerServerLogic(configuration: WorkerConfiguration) {
     private def containerState(task: Task.Created) =
         DockerClientResource(_.inspectContainer(task.containerId)).map(_.state)
 
-    private def buildImage(taskId: String, imageIdOpt: Option[String]) = {
-        val path = Paths.get(configuration.imagesFolder, taskId)
-
-        imageIdOpt match {
-            case Some(imageId) => DockerClientResource(_.build(path, imageId)) // FIXME
-            case _ => DockerClientResource(_.build(path))
-        }
-    }
-
-    final val build = serverLogic(WorkerEndpoints.build) { case (imageArchive, imageId) =>
+    final val build = serverLogic(WorkerEndpoints.build) { case (imageArchive, taskTitle) =>
         for {
             taskId <- uuid
-            _ <- unpackTar(imageArchive.file, new File(configuration.imagesFolder, taskId))
-            imageId <- buildImage(taskId, None) // FIXME
-            task = Task.Built(Task.TaskId(taskId), configuration.node, imageId)
+            imageDir = new File(configuration.imagesFolder, taskId)
+            _ <- unpackTar(imageArchive.file, imageDir)
+            imageId <- DockerClientResource(_.build(imageDir.toPath))
+            task = Task.Built(Task.TaskId(taskId), configuration.node, imageId, taskTitle)
         } yield ServerResponse(task)
     }
 

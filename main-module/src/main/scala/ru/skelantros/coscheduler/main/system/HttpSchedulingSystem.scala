@@ -26,8 +26,8 @@ class HttpSchedulingSystem(val config: Configuration) extends SchedulingSystem {
         }
     } yield result
 
-    override def buildTask(node: Node)(image: ImageArchive, imageName: Option[String] = None): IO[Task.Built] =
-        makeRequest(node, WorkerEndpoints.build)(image, imageName)
+    override def buildTask(node: Node)(image: ImageArchive, taskName: String): IO[Task.Built] =
+        makeRequest(node, WorkerEndpoints.build)(image, taskName)
 
     override def createTask(task: Task.Built): IO[Task.Created] =
         makeRequest(task.node, WorkerEndpoints.create)(task)

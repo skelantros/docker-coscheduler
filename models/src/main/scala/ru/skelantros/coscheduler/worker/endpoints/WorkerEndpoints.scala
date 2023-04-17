@@ -22,7 +22,7 @@ object WorkerEndpoints {
     final val build = baseEndpoint.post
         .in("build")
         .in(imageArchiveBody)
-        .in(query[Option[String]]("imageId"))
+        .in(query[String]("title"))
         .out(builtBody)
 
     private def taskEndpoint = baseEndpoint.post.in(createdBody).out(createdBody)

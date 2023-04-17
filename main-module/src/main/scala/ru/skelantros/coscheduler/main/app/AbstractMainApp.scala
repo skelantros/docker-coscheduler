@@ -3,7 +3,7 @@ package ru.skelantros.coscheduler.main.app
 import cats.effect.{ExitCode, IO, IOApp}
 import ru.skelantros.coscheduler.main.Configuration
 import ru.skelantros.coscheduler.main.strategy.Strategy
-import ru.skelantros.coscheduler.main.system.{HttpSchedulingSystem, LoggingSchedulingSystem, SchedulingSystem}
+import ru.skelantros.coscheduler.main.system.SchedulingSystem
 
 trait AbstractMainApp[S <: SchedulingSystem] extends IOApp {
     val initStrategy: (S, Configuration) => Strategy

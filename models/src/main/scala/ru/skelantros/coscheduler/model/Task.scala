@@ -1,14 +1,14 @@
 package ru.skelantros.coscheduler.model
 
-import io.circe.{Codec, Decoder, Encoder}
 import io.circe.generic.semiauto.deriveCodec
+import io.circe.{Codec, Decoder, Encoder}
 import ru.skelantros.coscheduler.model.Task.TaskId
-import sttp.tapir.Schema
 
 sealed trait Task {
     def id: TaskId
     def node: Node
     def imageId: String
+    def title: String
 }
 
 object Task {
@@ -21,15 +21,15 @@ object Task {
             Decoder.decodeString.map(TaskId(_))
     }
 
-    case class Built(id: TaskId, node: Node, imageId: String) extends Task {
+    case class Built(id: TaskId, node: Node, imageId: String, title: String) extends Task {
         def created(containerId: String): Created =
-            Created(id, node, imageId, containerId)
+            Created(id, node, imageId, title, containerId)
     }
     object Built {
         implicit val codec: Codec[Built] = deriveCodec
     }
 
-    case class Created private(id: TaskId, node: Node, imageId: String, containerId: String) extends Task
+    case class Created private(id: TaskId, node: Node, imageId: String, title: String, containerId: String) extends Task
     object Created {
         implicit val codec: Codec[Created] = deriveCodec
     }
