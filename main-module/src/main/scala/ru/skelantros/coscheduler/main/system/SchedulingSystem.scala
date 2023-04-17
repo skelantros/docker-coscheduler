@@ -10,9 +10,10 @@ import java.util.UUID
 
 trait SchedulingSystem {
     def buildTask(node: Node)(image: ImageArchive, imageName: Option[String] = None): IO[Task.Built]
-    def buildTaskFromDir(node: Node)(imageDir: File, imageName: Option[String] = None): IO[Task.Built] =
-        IO.fromTry(ImageArchiver(imageDir, UUID.randomUUID().toString.filter(_ != '-')))
-            .flatMap(imageArchive => buildTask(node)(imageArchive, imageName))
+    def buildTaskFromDir(node: Node)(imageDir: File, imageName: Option[String] = None): IO[Task.Built] = {
+        ImageArchiver[IO](imageDir, UUID.randomUUID().toString.filter(_ != '-'))
+            .use(imageArchive => buildTask(node)(imageArchive, imageName))
+    }
 
     def createTask(task: Task.Built): IO[Task.Created]
     def startTask(task: Task.Created): IO[Task.Created]
