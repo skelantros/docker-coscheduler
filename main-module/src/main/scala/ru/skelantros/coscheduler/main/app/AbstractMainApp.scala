@@ -5,16 +5,16 @@ import ru.skelantros.coscheduler.main.Configuration
 import ru.skelantros.coscheduler.main.strategy.Strategy
 import ru.skelantros.coscheduler.main.system.{HttpSchedulingSystem, LoggingSchedulingSystem, SchedulingSystem}
 
-trait AbstractMainApp extends IOApp {
-    val initStrategy: (SchedulingSystem, Configuration) => Strategy
+trait AbstractMainApp[S <: SchedulingSystem] extends IOApp {
+    val initStrategy: (S, Configuration) => Strategy
     def loadConfiguration(args: List[String]): Option[Configuration]
+    def schedulingSystem(config: Configuration): S
 
     override def run(args: List[String]): IO[ExitCode] = {
         val strategyWithTasks = for {
             config <- loadConfiguration(args)
-            schedulingSystem = new LoggingSchedulingSystem(new HttpSchedulingSystem(config))
             tasks = config.tasks
-        } yield (initStrategy(schedulingSystem, config), tasks)
+        } yield (initStrategy(schedulingSystem(config), config), tasks)
 
         strategyWithTasks.fold(
             IO.pure(ExitCode.Error)
