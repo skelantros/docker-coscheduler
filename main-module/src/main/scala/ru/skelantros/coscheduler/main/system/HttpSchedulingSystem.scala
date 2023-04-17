@@ -44,14 +44,18 @@ class HttpSchedulingSystem(val config: Configuration) extends SchedulingSystem {
     override def stopTask(task: Task.Created): IO[Task.Created] =
         makeRequest(task.node, WorkerEndpoints.stop)(task)
 
-    override def waitForTask(task: Task.Created): IO[Option[TaskLogs]] =
-        for {
-            isRunning <- makeRequest(task.node, WorkerEndpoints.isRunning)(task)
-            res <-
-                if(isRunning) waitForTask(task).delayBy(config.waitForTaskDelay)
-                else taskLogs(task)
-        } yield res
+    override def waitForTask(task: Task.Created): IO[Option[TaskLogs]] = {
+        def go(task: Task.Created): IO[Option[TaskLogs]] =
+            for {
+                isRunning <- makeRequest(task.node, WorkerEndpoints.isRunning)(task)
+                res <-
+                    if(isRunning) go(task).delayBy(config.waitForTaskDelay)
+                    else taskLogs(task)
+            } yield res
+
+        go(task)
+    }
 
     override def taskLogs(task: Task.Created): IO[Option[TaskLogs]] =
-        makeRequest(task.node, WorkerEndpoints.taskLogs)(task) >> IO.pure(Some("Result"))
+        makeRequest(task.node, WorkerEndpoints.taskLogs)(task) >> IO.pure(Some("Result")) // FIXME
 }
