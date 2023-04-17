@@ -13,10 +13,15 @@ object Configuration {
     // TODO прикрутить подгрузку из конфига
     implicit val instance: Configuration =
         Configuration(
-            Set(Node("node1", uri"http://0.0.0.0:9876")),
+            Set(
+                Node("node1", uri"http://0.0.0.0:9876"),
+                Node("node2", uri"http://0.0.0.0:6789")
+            ),
             Vector(
                 "DockerTest" -> new File("/home/skelantros/projects/DockerTest"),
-                "DockerTest2" -> new File("/home/skelantros/projects/DockerTest")
+                "DockerTest2" -> new File("/home/skelantros/projects/DockerTest"),
+                "DockerTest3" -> new File("/home/skelantros/projects/DockerTest"),
+                "DockerTest4" -> new File("/home/skelantros/projects/DockerTest")
             ),
             1.seconds
         )
