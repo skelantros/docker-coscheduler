@@ -6,20 +6,20 @@ import ru.skelantros.coscheduler.main.Configuration
 import ru.skelantros.coscheduler.main.strategy.Strategy.StrategyTask
 import ru.skelantros.coscheduler.main.system.SchedulingSystem
 
-class TrivialStrategy(schedulingSystem: SchedulingSystem, config: Configuration) extends Strategy {
+class TrivialStrategy(val schedulingSystem: SchedulingSystem, val config: Configuration) extends Strategy {
     override def execute(tasks: Vector[StrategyTask]): IO[Unit] = {
-        val nodes = config.nodes.toVector
-        val ioBuiltTasks = tasks.zipWithIndex.map {
-            case (taskWithName, idx) =>
-                for {
-                    builtTask <- schedulingSystem.buildTaskFromTuple(nodes(idx % nodes.size))(taskWithName)
-                    createdTask <- schedulingSystem.createTask(builtTask)
-                    startedTask <- schedulingSystem.startTask(createdTask)
-                    _ <- schedulingSystem.waitForTask(startedTask)
-                } yield ()
-        }
-
-        ioBuiltTasks.parSequence >> IO.unit
+        for {
+            nodes <- this.nodes
+            result <- tasks.zipWithIndex.map {
+                case (taskWithName, idx) =>
+                    for {
+                        builtTask <- schedulingSystem.buildTaskFromTuple(nodes(idx % nodes.size))(taskWithName)
+                        createdTask <- schedulingSystem.createTask(builtTask)
+                        startedTask <- schedulingSystem.startTask(createdTask)
+                        _ <- schedulingSystem.waitForTask(startedTask)
+                    } yield ()
+            }.parSequence >> IO.unit
+        } yield  result
     }
 }
 

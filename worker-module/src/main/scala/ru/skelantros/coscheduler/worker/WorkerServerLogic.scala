@@ -1,6 +1,7 @@
 package ru.skelantros.coscheduler.worker
 
 import cats.effect.IO
+import cats.implicits.catsSyntaxApplicativeId
 import com.spotify.docker.client.DockerClient.LogsParam
 import com.spotify.docker.client.LogStream
 import com.spotify.docker.client.messages.ContainerConfig
@@ -108,6 +109,8 @@ class WorkerServerLogic(configuration: WorkerConfiguration) {
         } yield ServerResponse(containerState.running)
     }
 
+    final val nodeInfo = serverLogic(WorkerEndpoints.nodeInfo) { _ => ServerResponse(configuration.node).pure[IO] }
+
     // FIXME
     private def fs2LogStream(logStream: LogStream) = {
         fs2.Stream.unfold[IO, LogStream, String](logStream)(remLogs => if(remLogs.hasNext) Some((new String(remLogs.next.content().array()), remLogs)) else {remLogs.close(); None})
@@ -129,6 +132,7 @@ class WorkerServerLogic(configuration: WorkerConfiguration) {
         resume,
         stop,
         isRunning,
-        taskLogs
+        taskLogs,
+        nodeInfo
     )
 }

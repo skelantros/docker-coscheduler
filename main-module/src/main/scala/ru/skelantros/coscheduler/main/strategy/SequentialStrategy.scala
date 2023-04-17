@@ -14,7 +14,7 @@ import ru.skelantros.coscheduler.model.Node
  *
  * Данную "тривиальную" стратегию будем использовать для сравнения с кошедулинг-стратегиями.
  */
-class SequentialStrategy(schedulingSystem: SchedulingSystem, config: Configuration) extends Strategy {
+class SequentialStrategy(val schedulingSystem: SchedulingSystem, val config: Configuration) extends Strategy {
     private case class SingleNodeWorker(tasksRef: Ref[IO, List[StrategyTask]])(node: Node) {
         def execute: IO[Unit] = for {
             taskOpt <- tasksRef.modify {
@@ -34,8 +34,9 @@ class SequentialStrategy(schedulingSystem: SchedulingSystem, config: Configurati
 
     override def execute(tasks: Vector[StrategyTask]): IO[Unit] =
         for {
+            nodes <- this.nodes
             tasksRef <- Ref[IO].of(tasks.toList)
-            workers = config.nodes.toList.map(SingleNodeWorker(tasksRef))
+            workers = nodes.map(SingleNodeWorker(tasksRef))
             action <- workers.map(_.execute).parSequence >> IO.unit
         } yield action
 }

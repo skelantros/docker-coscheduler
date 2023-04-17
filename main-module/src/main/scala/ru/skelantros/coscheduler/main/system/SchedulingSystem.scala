@@ -5,11 +5,14 @@ import ru.skelantros.coscheduler.model.{Node, Task}
 import ru.skelantros.coscheduler.main.system.SchedulingSystem.TaskLogs
 import ru.skelantros.coscheduler.image.{ImageArchive, ImageArchiver}
 import ru.skelantros.coscheduler.main.strategy.Strategy.StrategyTask
+import sttp.model.Uri
 
 import java.io.File
 import java.util.UUID
 
 trait SchedulingSystem {
+    def nodeInfo(uri: Uri): IO[Node]
+
     def buildTask(node: Node)(image: ImageArchive, taskName: String): IO[Task.Built]
     def buildTaskFromDir(node: Node)(imageDir: File, taskName: String): IO[Task.Built] = {
         ImageArchiver[IO](imageDir, UUID.randomUUID().toString.filter(_ != '-'))

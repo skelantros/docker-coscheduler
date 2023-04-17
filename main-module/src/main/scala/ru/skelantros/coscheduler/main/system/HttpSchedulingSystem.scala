@@ -6,14 +6,16 @@ import ru.skelantros.coscheduler.image.ImageArchive
 import ru.skelantros.coscheduler.main.Configuration
 import ru.skelantros.coscheduler.worker.endpoints.{AppEndpoint, WorkerEndpoints}
 import sttp.client3.http4s.Http4sBackend
+import sttp.model.Uri
 import sttp.tapir.DecodeResult
 import sttp.tapir.client.sttp.SttpClientInterpreter
 
 class HttpSchedulingSystem(val config: Configuration) extends SchedulingSystem {
     private val client = Http4sBackend.usingDefaultEmberClientBuilder[IO]()
     private val inter = SttpClientInterpreter()
-    private def makeRequest[I, O](node: Node, endpoint: AppEndpoint[I, O])(input: I): IO[O] = for {
-        route <- IO(inter.toRequest(endpoint, Some(node.uri)))
+
+    private def makeRequest[I, O](uri: Uri, endpoint: AppEndpoint[I, O])(input: I): IO[O] = for {
+        route <- IO(inter.toRequest(endpoint, Some(uri)))
         request = route(input)
         response <- client.use(b => request.send(b))
         result <- response.body match {
@@ -26,28 +28,31 @@ class HttpSchedulingSystem(val config: Configuration) extends SchedulingSystem {
         }
     } yield result
 
+    override def nodeInfo(uri: Uri): IO[Node] =
+        makeRequest(uri, WorkerEndpoints.nodeInfo)(()).map(_.copy(uri = uri))
+
     override def buildTask(node: Node)(image: ImageArchive, taskName: String): IO[Task.Built] =
-        makeRequest(node, WorkerEndpoints.build)(image, taskName)
+        makeRequest(node.uri, WorkerEndpoints.build)(image, taskName)
 
     override def createTask(task: Task.Built): IO[Task.Created] =
-        makeRequest(task.node, WorkerEndpoints.create)(task)
+        makeRequest(task.node.uri, WorkerEndpoints.create)(task)
 
     override def startTask(task: Task.Created): IO[Task.Created] =
-        makeRequest(task.node, WorkerEndpoints.start)(task)
+        makeRequest(task.node.uri, WorkerEndpoints.start)(task)
 
     override def pauseTask(task: Task.Created): IO[Task.Created] =
-        makeRequest(task.node, WorkerEndpoints.pause)(task)
+        makeRequest(task.node.uri, WorkerEndpoints.pause)(task)
 
     override def resumeTask(task: Task.Created): IO[Task.Created] =
-        makeRequest(task.node, WorkerEndpoints.resume)(task)
+        makeRequest(task.node.uri, WorkerEndpoints.resume)(task)
 
     override def stopTask(task: Task.Created): IO[Task.Created] =
-        makeRequest(task.node, WorkerEndpoints.stop)(task)
+        makeRequest(task.node.uri, WorkerEndpoints.stop)(task)
 
     override def waitForTask(task: Task.Created): IO[Option[TaskLogs]] = {
         def go(task: Task.Created): IO[Option[TaskLogs]] =
             for {
-                isRunning <- makeRequest(task.node, WorkerEndpoints.isRunning)(task)
+                isRunning <- makeRequest(task.node.uri, WorkerEndpoints.isRunning)(task)
                 res <-
                     if(isRunning) go(task).delayBy(config.waitForTaskDelay)
                     else taskLogs(task)
@@ -57,5 +62,5 @@ class HttpSchedulingSystem(val config: Configuration) extends SchedulingSystem {
     }
 
     override def taskLogs(task: Task.Created): IO[Option[TaskLogs]] =
-        makeRequest(task.node, WorkerEndpoints.taskLogs)(task) >> IO.pure(Some("Result")) // FIXME
+        makeRequest(task.node.uri, WorkerEndpoints.taskLogs)(task) >> IO.pure(Some("Result")) // FIXME
 }
