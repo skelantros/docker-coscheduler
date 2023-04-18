@@ -4,7 +4,7 @@ import cats.effect.IO
 import cats.implicits.catsSyntaxApplicativeId
 import com.spotify.docker.client.DockerClient.LogsParam
 import com.spotify.docker.client.LogStream
-import com.spotify.docker.client.messages.ContainerConfig
+import com.spotify.docker.client.messages.{ContainerConfig, HostConfig}
 import fs2._
 import ru.skelantros.coscheduler.model.Task
 import ru.skelantros.coscheduler.worker.docker.DockerClientResource
@@ -58,11 +58,18 @@ class WorkerServerLogic(configuration: WorkerConfiguration) {
         } yield ServerResponse(task)
     }
 
-    final val create = taskLogic(WorkerEndpoints.create) { task =>
+    final val create = taskLogic(WorkerEndpoints.create) { case (task, cpusOpt) =>
         val containerConfig = ContainerConfig.builder().image(task.imageId).build()
         for {
             createResult <- DockerClientResource(_.createContainer(containerConfig))
-        } yield ServerResponse(task.created(createResult.id))
+            containerId = createResult.id
+            _ <- cpusOpt match {
+                case Some(cpus) =>
+                    val hostConfig = HostConfig.builder().cpusetCpus(cpus.asString).build()
+                    DockerClientResource(_.updateContainer(containerId, hostConfig)) >> IO.unit
+                case _ => IO.unit
+            }
+        } yield ServerResponse(task.created(createResult.id, cpusOpt))
     }
 
     final val start = taskLogic(WorkerEndpoints.start) { task =>

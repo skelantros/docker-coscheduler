@@ -3,7 +3,7 @@ import cats.effect.IO
 import cats.implicits._
 import ru.skelantros.coscheduler.image.ImageArchive
 import ru.skelantros.coscheduler.main.system.SchedulingSystem.TaskLogs
-import ru.skelantros.coscheduler.model.{Node, Task}
+import ru.skelantros.coscheduler.model.{CpuSet, Node, Task}
 import sttp.model.Uri
 
 // TODO очень плохое логирование, прикрутить нормальное: с таймстемпами, через логгер, всё как положено
@@ -16,8 +16,8 @@ trait LoggingSchedulingSystem extends SchedulingSystem {
     abstract override def buildTask(node: Node)(image: ImageArchive, taskName: String): IO[Task.Built] =
         super.buildTask(node)(image, taskName) <* log(s"buildTask($node)($image, $taskName)")
 
-    abstract override def createTask(task: Task.Built): IO[Task.Created] =
-        super.createTask(task) <* log(s"createTask($task)")
+    abstract override def createTask(task: Task.Built, cpuset: Option[CpuSet] = None): IO[Task.Created] =
+        super.createTask(task, cpuset) <* log(s"createTask($task)")
 
     abstract override def startTask(task: Task.Created): IO[Task.Created] =
         super.startTask(task) <* log(s"startTask($task)")

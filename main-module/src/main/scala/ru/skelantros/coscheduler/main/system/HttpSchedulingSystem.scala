@@ -1,6 +1,6 @@
 package ru.skelantros.coscheduler.main.system
 import cats.effect.IO
-import ru.skelantros.coscheduler.model.{Node, Task}
+import ru.skelantros.coscheduler.model.{CpuSet, Node, Task}
 import ru.skelantros.coscheduler.main.system.SchedulingSystem.TaskLogs
 import ru.skelantros.coscheduler.image.ImageArchive
 import ru.skelantros.coscheduler.main.Configuration
@@ -34,8 +34,8 @@ class HttpSchedulingSystem(val config: Configuration) extends SchedulingSystem {
     override def buildTask(node: Node)(image: ImageArchive, taskName: String): IO[Task.Built] =
         makeRequest(node.uri, WorkerEndpoints.build)(image, taskName)
 
-    override def createTask(task: Task.Built): IO[Task.Created] =
-        makeRequest(task.node.uri, WorkerEndpoints.create)(task)
+    override def createTask(task: Task.Built, cpuset: Option[CpuSet] = None): IO[Task.Created] =
+        makeRequest(task.node.uri, WorkerEndpoints.create)(task, cpuset)
 
     override def startTask(task: Task.Created): IO[Task.Created] =
         makeRequest(task.node.uri, WorkerEndpoints.start)(task)

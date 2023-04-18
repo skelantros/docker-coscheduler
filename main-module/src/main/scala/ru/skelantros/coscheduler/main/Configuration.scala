@@ -8,7 +8,7 @@ import sttp.model.Uri
 import java.io.File
 import scala.concurrent.duration.{Duration, DurationInt}
 
-case class Configuration(nodesUri: Vector[Uri], tasks: Vector[StrategyTask], waitForTaskDelay: Duration)
+case class Configuration(nodesUri: Vector[Uri], tasks: Vector[StrategyTask], waitForTaskDelay: Duration, bwThreshold: Option[Double])
 
 object Configuration {
     // TODO прикрутить подгрузку из конфига
@@ -24,6 +24,7 @@ object Configuration {
                 "DockerTest3" -> new File("/home/skelantros/projects/DockerTest"),
                 "DockerTest4" -> new File("/home/skelantros/projects/DockerTest")
             ),
-            1.seconds
+            1.seconds,
+            Some(0.9)
         )
 }

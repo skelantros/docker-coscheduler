@@ -24,7 +24,7 @@ class SequentialStrategy(val schedulingSystem: SchedulingSystem, val config: Con
             action <- taskOpt match {
                 case Some(task) =>
                     schedulingSystem.buildTaskFromTuple(node)(task)
-                        .flatMap(schedulingSystem.createTask)
+                        .flatMap(schedulingSystem.createTask(_))
                         .flatMap(schedulingSystem.startTask)
                         .flatMap(schedulingSystem.waitForTask) >> execute
                 case None => IO.unit
