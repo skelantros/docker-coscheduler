@@ -2,7 +2,7 @@ package ru.skelantros.coscheduler.worker.endpoints
 
 import cats.effect.IO
 import ru.skelantros.coscheduler.image.ImageArchive
-import ru.skelantros.coscheduler.model.{Node, Task}
+import ru.skelantros.coscheduler.model.{CpuSet, Node, Task}
 import sttp.capabilities.fs2.Fs2Streams
 import sttp.tapir._
 import sttp.tapir.generic.auto._
@@ -26,7 +26,10 @@ object WorkerEndpoints {
         .out(builtBody)
 
     private def taskEndpoint = baseEndpoint.post.in(createdBody).out(createdBody)
-    final val create = baseEndpoint.post.in(builtBody).out(createdBody)
+    final val create = baseEndpoint.post
+        .in("create")
+        .in(builtBody).in(query[Option[CpuSet]]("cpus"))
+        .out(createdBody)
     final val start = taskEndpoint.in("start")
     final val pause = taskEndpoint.in("pause")
     final val resume = taskEndpoint.in("resume")

@@ -22,14 +22,14 @@ object Task {
     }
 
     case class Built(id: TaskId, node: Node, imageId: String, title: String) extends Task {
-        def created(containerId: String): Created =
-            Created(id, node, imageId, title, containerId)
+        def created(containerId: String, cpus: Option[CpuSet]): Created =
+            Created(id, node, imageId, title, containerId, cpus)
     }
     object Built {
         implicit val codec: Codec[Built] = deriveCodec
     }
 
-    case class Created private(id: TaskId, node: Node, imageId: String, title: String, containerId: String) extends Task
+    case class Created private(id: TaskId, node: Node, imageId: String, title: String, containerId: String, cpus: Option[CpuSet]) extends Task
     object Created {
         implicit val codec: Codec[Created] = deriveCodec
     }

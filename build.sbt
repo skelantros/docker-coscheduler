@@ -6,7 +6,12 @@ lazy val cats = "org.typelevel" %% "cats-core" % "2.9.0"
 lazy val catsEffect = "org.typelevel" %% "cats-effect" % "3.4.8"
 lazy val fs2 = "co.fs2" %% "fs2-core" % "3.6.1"
 lazy val dockerClient = "com.spotify" % "docker-client" % "8.16.0"
-lazy val pureconfig = "com.github.pureconfig" %% "pureconfig" % "0.17.2"
+
+lazy val pureconfigVersion = "0.17.2"
+lazy val pureconfig = Seq(
+    "com.github.pureconfig" %% "pureconfig" % pureconfigVersion,
+    "com.github.pureconfig" %% "pureconfig-magnolia" % pureconfigVersion
+)
 
 lazy val tapirVersion = "1.2.12"
 lazy val tapirDeps = Seq(
@@ -32,6 +37,8 @@ lazy val http4s = Seq(
 
 lazy val logging = "org.slf4j" % "slf4j-simple" % "2.0.7"
 
+lazy val mqtt = "org.eclipse.paho" % "org.eclipse.paho.client.mqttv3" % "1.2.5"
+
 lazy val root = (project in file("."))
   .settings(
     name := "docker-coscheduler"
@@ -39,23 +46,23 @@ lazy val root = (project in file("."))
 
 lazy val models = (project in file("models"))
     .settings(
-        libraryDependencies ++= (tapirDeps :+ cats)
+        libraryDependencies ++= tapirDeps
     )
 
 lazy val mainModule = (project in file("main-module"))
     .dependsOn(models)
     .settings(
-        libraryDependencies ++= http4s ++ sttpClientDeps ++ Seq(cats, catsEffect, pureconfig)
+        libraryDependencies ++= http4s ++ sttpClientDeps ++ pureconfig ++ Seq(cats, catsEffect)
     )
 
 lazy val workerModule = (project in file("worker-module"))
     .dependsOn(models)
     .settings(
-        libraryDependencies ++= (tapirDeps ++ http4s :+ dockerClient :+ logging)
+        libraryDependencies ++= (tapirDeps ++ http4s :+ dockerClient :+ logging) :+ mqtt
     )
 
 lazy val sandbox = (project in file("sandbox"))
     .dependsOn(models)
     .settings(
-        libraryDependencies ++= sttpClientDeps ++ tapirDeps ++ http4s :+ dockerClient
+        libraryDependencies ++= sttpClientDeps ++ tapirDeps ++ http4s :+ dockerClient :+ mqtt
     )

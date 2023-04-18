@@ -7,8 +7,6 @@ import ru.skelantros.coscheduler.main.system.{HttpSchedulingSystem, LoggingSched
 object SequentialMainApp extends AbstractMainApp[SchedulingSystem] {
     override val initStrategy: (SchedulingSystem, Configuration) => Strategy = SequentialStrategy(_, _)
 
-    override def loadConfiguration(args: List[String]): Option[Configuration] = Some(implicitly[Configuration])
-
     override def schedulingSystem(config: Configuration): SchedulingSystem =
         new HttpSchedulingSystem(config) with LoggingSchedulingSystem
 }
