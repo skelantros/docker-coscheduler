@@ -32,6 +32,8 @@ lazy val http4s = Seq(
 
 lazy val logging = "org.slf4j" % "slf4j-simple" % "2.0.7"
 
+lazy val mqtt = "org.eclipse.paho" % "org.eclipse.paho.client.mqttv3" % "1.2.5"
+
 lazy val root = (project in file("."))
   .settings(
     name := "docker-coscheduler"
@@ -45,17 +47,17 @@ lazy val models = (project in file("models"))
 lazy val mainModule = (project in file("main-module"))
     .dependsOn(models)
     .settings(
-        libraryDependencies ++= http4s ++ sttpClientDeps ++ Seq(cats, catsEffect, pureconfig)
+        libraryDependencies ++= http4s ++ sttpClientDeps ++ Seq(cats, catsEffect, pureconfig) :+ mqtt
     )
 
 lazy val workerModule = (project in file("worker-module"))
     .dependsOn(models)
     .settings(
-        libraryDependencies ++= (tapirDeps ++ http4s :+ dockerClient :+ logging)
+        libraryDependencies ++= (tapirDeps ++ http4s :+ dockerClient :+ logging) :+ mqtt
     )
 
 lazy val sandbox = (project in file("sandbox"))
     .dependsOn(models)
     .settings(
-        libraryDependencies ++= sttpClientDeps ++ tapirDeps ++ http4s :+ dockerClient
+        libraryDependencies ++= sttpClientDeps ++ tapirDeps ++ http4s :+ dockerClient :+ mqtt
     )
