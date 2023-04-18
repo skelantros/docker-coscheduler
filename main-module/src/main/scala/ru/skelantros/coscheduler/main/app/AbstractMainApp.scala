@@ -1,13 +1,18 @@
 package ru.skelantros.coscheduler.main.app
 
 import cats.effect.{ExitCode, IO, IOApp}
+import pureconfig.ConfigSource
+import pureconfig.generic.auto._
 import ru.skelantros.coscheduler.main.Configuration
 import ru.skelantros.coscheduler.main.strategy.Strategy
 import ru.skelantros.coscheduler.main.system.SchedulingSystem
 
 trait AbstractMainApp[S <: SchedulingSystem] extends IOApp {
     val initStrategy: (S, Configuration) => Strategy
-    def loadConfiguration(args: List[String]): Option[Configuration]
+
+    private def loadConfiguration(args: List[String]): Option[Configuration] =
+        args.headOption.fold(ConfigSource.default)(ConfigSource.file).load[Configuration].toOption
+
     def schedulingSystem(config: Configuration): S
 
     override def run(args: List[String]): IO[ExitCode] = {

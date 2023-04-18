@@ -9,6 +9,4 @@ object TrivialMainApp extends AbstractMainApp[SchedulingSystem] {
 
     override def schedulingSystem(config: Configuration): SchedulingSystem =
         new HttpSchedulingSystem(config) with LoggingSchedulingSystem
-
-    override def loadConfiguration(args: List[String]): Option[Configuration] = Some(implicitly[Configuration])
 }

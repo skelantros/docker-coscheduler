@@ -6,7 +6,12 @@ lazy val cats = "org.typelevel" %% "cats-core" % "2.9.0"
 lazy val catsEffect = "org.typelevel" %% "cats-effect" % "3.4.8"
 lazy val fs2 = "co.fs2" %% "fs2-core" % "3.6.1"
 lazy val dockerClient = "com.spotify" % "docker-client" % "8.16.0"
-lazy val pureconfig = "com.github.pureconfig" %% "pureconfig" % "0.17.2"
+
+lazy val pureconfigVersion = "0.17.2"
+lazy val pureconfig = Seq(
+    "com.github.pureconfig" %% "pureconfig" % pureconfigVersion,
+    "com.github.pureconfig" %% "pureconfig-magnolia" % pureconfigVersion
+)
 
 lazy val tapirVersion = "1.2.12"
 lazy val tapirDeps = Seq(
@@ -41,13 +46,13 @@ lazy val root = (project in file("."))
 
 lazy val models = (project in file("models"))
     .settings(
-        libraryDependencies ++= (tapirDeps :+ cats)
+        libraryDependencies ++= tapirDeps
     )
 
 lazy val mainModule = (project in file("main-module"))
     .dependsOn(models)
     .settings(
-        libraryDependencies ++= http4s ++ sttpClientDeps ++ Seq(cats, catsEffect, pureconfig) :+ mqtt
+        libraryDependencies ++= http4s ++ sttpClientDeps ++ pureconfig ++ Seq(cats, catsEffect)
     )
 
 lazy val workerModule = (project in file("worker-module"))
