@@ -4,7 +4,7 @@ import io.circe.generic.semiauto.deriveCodec
 import io.circe.{Codec, Decoder, Encoder}
 import sttp.model.Uri
 
-case class Node(id: String, uri: Uri)
+case class Node(id: String, uri: Uri, cores: Int)
 
 object Node {
     implicit val codec: Codec[Node] = deriveCodec

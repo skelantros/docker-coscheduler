@@ -3,25 +3,23 @@ package ru.skelantros.coscheduler.main.strategy
 import cats.effect.IO
 import cats.implicits.catsSyntaxParallelSequence1
 import ru.skelantros.coscheduler.main.Configuration
-import ru.skelantros.coscheduler.main.strategy.Strategy.TaskName
+import ru.skelantros.coscheduler.main.strategy.Strategy.StrategyTask
 import ru.skelantros.coscheduler.main.system.SchedulingSystem
 
-import java.io.File
-
-class TrivialStrategy(schedulingSystem: SchedulingSystem, config: Configuration) extends Strategy {
-    override def execute(tasks: Vector[(TaskName, File)]): IO[Unit] = {
-        val nodes = config.nodes.toVector
-        val ioBuiltTasks = tasks.zipWithIndex.map {
-            case ((taskName, imageDir), idx) =>
-                for {
-                    builtTask <- schedulingSystem.buildTaskFromDir(nodes(idx % nodes.size))(imageDir, Some(taskName))
-                    createdTask <- schedulingSystem.createTask(builtTask)
-                    startedTask <- schedulingSystem.startTask(createdTask)
-                    _ <- schedulingSystem.waitForTask(startedTask)
-                } yield ()
-        }
-
-        ioBuiltTasks.parSequence >> IO.unit
+class TrivialStrategy(val schedulingSystem: SchedulingSystem, val config: Configuration) extends Strategy {
+    override def execute(tasks: Vector[StrategyTask]): IO[Unit] = {
+        for {
+            nodes <- this.nodes
+            result <- tasks.zipWithIndex.map {
+                case (taskWithName, idx) =>
+                    for {
+                        builtTask <- schedulingSystem.buildTaskFromTuple(nodes(idx % nodes.size))(taskWithName)
+                        createdTask <- schedulingSystem.createTask(builtTask)
+                        startedTask <- schedulingSystem.startTask(createdTask)
+                        _ <- schedulingSystem.waitForTask(startedTask)
+                    } yield ()
+            }.parSequence >> IO.unit
+        } yield  result
     }
 }
 

@@ -2,7 +2,7 @@ package ru.skelantros.coscheduler.worker.endpoints
 
 import cats.effect.IO
 import ru.skelantros.coscheduler.image.ImageArchive
-import ru.skelantros.coscheduler.model.Task
+import ru.skelantros.coscheduler.model.{Node, Task}
 import sttp.capabilities.fs2.Fs2Streams
 import sttp.tapir._
 import sttp.tapir.generic.auto._
@@ -22,7 +22,7 @@ object WorkerEndpoints {
     final val build = baseEndpoint.post
         .in("build")
         .in(imageArchiveBody)
-        .in(query[Option[String]]("imageId"))
+        .in(query[String]("title"))
         .out(builtBody)
 
     private def taskEndpoint = baseEndpoint.post.in(createdBody).out(createdBody)
@@ -41,4 +41,8 @@ object WorkerEndpoints {
         .in("running")
         .in(createdBody)
         .out(jsonBody[Boolean])
+
+    final val nodeInfo = baseEndpoint.get
+        .in("info")
+        .out(jsonBody[Node])
 }

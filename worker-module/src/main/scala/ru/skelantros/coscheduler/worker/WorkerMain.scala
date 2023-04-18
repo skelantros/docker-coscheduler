@@ -7,6 +7,7 @@ import org.http4s.ember.server.EmberServerBuilder
 import ru.skelantros.coscheduler.model
 import sttp.model.Uri
 import sttp.tapir.server.http4s.Http4sServerInterpreter
+import scala.sys.process._
 
 object WorkerMain extends IOApp {
     private def parseArgs(args: List[String]): Option[(String, String, Ipv4Address, Port)] = args match {
@@ -16,10 +17,15 @@ object WorkerMain extends IOApp {
             None
     }
 
+    // TODO обернуть в IO
+    private def cpusCount() =
+        "grep -c ^processor /proc/cpuinfo".!!.dropRight(1).toIntOption
+
     private def workerConfiguration(nodeName: String, nodeFolder: String, host: Ipv4Address, port: Port) =
         for {
+            cpus <- cpusCount()
             uri <- Uri.parse(s"http://$host:$port").toOption
-        } yield WorkerConfiguration(nodeFolder, model.Node(nodeName, uri))
+        } yield WorkerConfiguration(nodeFolder, model.Node(nodeName, uri, cpus))
 
     private def makeServer(nodeName: String, nodeFolder: String, host: Ipv4Address, port: Port) =
         for {
