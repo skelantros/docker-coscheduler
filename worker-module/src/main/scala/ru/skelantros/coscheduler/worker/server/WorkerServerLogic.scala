@@ -1,4 +1,4 @@
-package ru.skelantros.coscheduler.worker
+package ru.skelantros.coscheduler.worker.server
 
 import cats.effect.IO
 import cats.implicits.catsSyntaxApplicativeId
@@ -7,6 +7,7 @@ import com.spotify.docker.client.LogStream
 import com.spotify.docker.client.messages.{ContainerConfig, HostConfig}
 import fs2._
 import ru.skelantros.coscheduler.model.Task
+import ru.skelantros.coscheduler.worker.WorkerConfiguration
 import ru.skelantros.coscheduler.worker.docker.DockerClientResource
 import ru.skelantros.coscheduler.worker.endpoints.{AppEndpoint, ServerResponse, WorkerEndpoints}
 import sttp.capabilities.fs2.Fs2Streams
@@ -15,7 +16,7 @@ import sttp.tapir.server.ServerEndpoint
 import java.io.File
 import java.util.UUID
 
-class WorkerServerLogic(configuration: WorkerConfiguration) {
+class WorkerServerLogic(configuration: WorkerConfiguration) extends ServerLogic {
     private def createDirectory(dir: File): IO[Unit] = {
         import scala.sys.process._
         IO(s"mkdir $dir".!) >> IO.unit
@@ -29,21 +30,16 @@ class WorkerServerLogic(configuration: WorkerConfiguration) {
         }
     }
 
-    private val uuid: IO[String] = IO(UUID.randomUUID().toString.filter(_ != '-'))
-
-    @inline
-    private def serverLogic[I, O](endpoint: AppEndpoint[I, O])(logic: I => IO[ServerResponse[O]]) =
-        endpoint.serverLogic { input =>
-            logic(input).handleErrorWith(t => IO(ServerResponse.internalError(t.toString)))
+    private def customTaskLogic[I, O](endpoint: AppEndpoint[I, O])(task: I => Task)(logic: I => IO[ServerResponse[O]]) =
+        serverLogic(endpoint) { input =>
+            if (task(input).node != configuration.node)
+                IO.pure(ServerResponse.badRequest(s"Task ${task(input).id} is located on node ${task(input).node}."))
+            else
+                logic(input)
         }
 
     private def taskLogic[I <: Task, O](endpoint: AppEndpoint[I, O])(logic: I => IO[ServerResponse[O]]) =
-        serverLogic(endpoint) { task =>
-            if (task.node != configuration.node)
-                IO.pure(ServerResponse.badRequest(s"Task ${task.id} is located on node ${task.node}."))
-            else
-                logic(task)
-        }
+        customTaskLogic(endpoint)(identity)(logic)
 
     private def containerState(task: Task.Created) =
         DockerClientResource(_.inspectContainer(task.containerId)).map(_.state)
@@ -58,7 +54,7 @@ class WorkerServerLogic(configuration: WorkerConfiguration) {
         } yield ServerResponse(task)
     }
 
-    final val create = taskLogic(WorkerEndpoints.create) { case (task, cpusOpt) =>
+    final val create = customTaskLogic(WorkerEndpoints.create)(_._1) { case (task, cpusOpt) =>
         val containerConfig = ContainerConfig.builder().image(task.imageId).build()
         for {
             createResult <- DockerClientResource(_.createContainer(containerConfig))
@@ -131,7 +127,7 @@ class WorkerServerLogic(configuration: WorkerConfiguration) {
         } yield ServerResponse(fs2LogStream(logs))
     }
 
-    final val routes: List[ServerEndpoint[Fs2Streams[IO], IO]] = List(
+    final override val routes: List[ServerEndpoint[Fs2Streams[IO], IO]] = List(
         build,
         create,
         start,

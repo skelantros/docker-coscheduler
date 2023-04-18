@@ -7,7 +7,7 @@ import ru.skelantros.coscheduler.model.{CpuSet, Node, Task}
 import sttp.model.Uri
 
 // TODO очень плохое логирование, прикрутить нормальное: с таймстемпами, через логгер, всё как положено
-trait LoggingSchedulingSystem extends SchedulingSystem {
+trait LoggingSchedulingSystem extends SchedulingSystem with WithRamBenchmark {
     private def log(msg: => String): IO[Unit] = IO.println(msg)
 
     abstract override def nodeInfo(uri: Uri): IO[Node] =
@@ -36,4 +36,14 @@ trait LoggingSchedulingSystem extends SchedulingSystem {
 
     abstract override def taskLogs(task: Task.Created): IO[Option[TaskLogs]] =
         super.taskLogs(task) <* log(s"taskLogs($task)")
+
+    abstract override def ramBenchmark(node: Node): IO[Double] = for {
+        result <- super.ramBenchmark(node)
+        _ <- log(s"ramBenchmark($node) = $result")
+    } yield result
+
+    override def avgRamBenchmark(node: Node)(attempts: Int): IO[Double] = for {
+        result <- super.avgRamBenchmark(node)(attempts)
+        _ <- log(s"avgRamBenchmark($node) = $result")
+    } yield result
 }

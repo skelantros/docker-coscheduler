@@ -20,6 +20,7 @@ package object endpoints {
 
     object ServerResponse {
         def apply[A](x: A): ServerResponse[A] = Right(x)
+        def unit: ServerResponse[Unit] = Right(())
         def error[A](code: StatusCode, msg: String = ""): ServerResponse[A] = Left(EndpointError(code, msg))
         def badRequest[A](msg: String = ""): ServerResponse[A] = error(StatusCode.BadRequest, msg)
         def notFound[A](msg: String = ""): ServerResponse[A] = error(StatusCode.NotFound, msg)
