@@ -58,7 +58,7 @@ lazy val mainModule = (project in file("main-module"))
 lazy val workerModule = (project in file("worker-module"))
     .dependsOn(models)
     .settings(
-        libraryDependencies ++= (tapirDeps ++ http4s :+ dockerClient :+ logging) :+ mqtt
+        libraryDependencies ++= (tapirDeps ++ pureconfig ++ http4s :+ dockerClient :+ logging) :+ mqtt
     )
 
 lazy val sandbox = (project in file("sandbox"))
