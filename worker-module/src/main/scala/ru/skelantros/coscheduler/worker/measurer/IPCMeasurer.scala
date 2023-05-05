@@ -7,7 +7,6 @@ import scala.collection.mutable.ArrayBuffer
 import scala.concurrent.duration.FiniteDuration
 import scala.sys.process._
 
-// TODO сюда нужно еще cputime прикрутить
 object IPCMeasurer {
     private val ipcRegex = """^.*instructions\s*#\s*([\d,]+).*$""".r
 
