@@ -10,11 +10,11 @@ import ru.skelantros.coscheduler.model.Task
 import ru.skelantros.coscheduler.worker.WorkerConfiguration
 import ru.skelantros.coscheduler.worker.docker.DockerClientResource
 import ru.skelantros.coscheduler.worker.endpoints.{AppEndpoint, ServerResponse, WorkerEndpoints}
+import ru.skelantros.coscheduler.worker.measurer.TaskSpeedMeasurer
 import sttp.capabilities.fs2.Fs2Streams
 import sttp.tapir.server.ServerEndpoint
 
 import java.io.File
-import java.util.UUID
 
 class WorkerServerLogic(configuration: WorkerConfiguration) extends ServerLogic {
     private def createDirectory(dir: File): IO[Unit] = {
@@ -127,6 +127,15 @@ class WorkerServerLogic(configuration: WorkerConfiguration) extends ServerLogic 
         } yield ServerResponse(fs2LogStream(logs))
     }
 
+    final val taskSpeed = customTaskLogic(WorkerEndpoints.taskSpeed)(_._1) { case (task, duration) =>
+        for {
+            state <- containerState(task)
+            result <-
+                if(!state.running) ServerResponse.badRequest(s"A container for task ${task.id} is not running.").pure[IO]
+                else TaskSpeedMeasurer(duration)(task).map(ServerResponse(_))
+        } yield result
+    }
+
     final override val routes: List[ServerEndpoint[Fs2Streams[IO], IO]] = List(
         build,
         create,
@@ -136,6 +145,7 @@ class WorkerServerLogic(configuration: WorkerConfiguration) extends ServerLogic 
         stop,
         isRunning,
         taskLogs,
-        nodeInfo
+        nodeInfo,
+        taskSpeed
     )
 }

@@ -3,11 +3,14 @@ import cats.effect.IO
 import cats.implicits._
 import ru.skelantros.coscheduler.image.ImageArchive
 import ru.skelantros.coscheduler.main.system.SchedulingSystem.TaskLogs
+import ru.skelantros.coscheduler.main.system.WithTaskSpeedEstimate.TaskSpeed
 import ru.skelantros.coscheduler.model.{CpuSet, Node, Task}
 import sttp.model.Uri
 
+import scala.concurrent.duration.FiniteDuration
+
 // TODO очень плохое логирование, прикрутить нормальное: с таймстемпами, через логгер, всё как положено
-trait LoggingSchedulingSystem extends SchedulingSystem with WithRamBenchmark {
+trait LoggingSchedulingSystem extends SchedulingSystem with WithRamBenchmark with WithTaskSpeedEstimate {
     private def log(msg: => String): IO[Unit] = IO.println(msg)
 
     abstract override def nodeInfo(uri: Uri): IO[Node] =
@@ -45,5 +48,10 @@ trait LoggingSchedulingSystem extends SchedulingSystem with WithRamBenchmark {
     override def avgRamBenchmark(node: Node)(attempts: Int): IO[Double] = for {
         result <- super.avgRamBenchmark(node)(attempts)
         _ <- log(s"avgRamBenchmark($node) = $result")
+    } yield result
+
+    abstract override def speedOf(task: Task.Created)(duration: FiniteDuration): IO[Option[TaskSpeed]] = for {
+        result <- super.speedOf(task)(duration)
+        _ <- log(s"speedOf($task)($duration) = $result")
     } yield result
 }

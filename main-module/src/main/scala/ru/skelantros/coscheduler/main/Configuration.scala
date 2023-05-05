@@ -14,5 +14,6 @@ case class Configuration(
     waitForTaskDelay: Duration,
     bwThreshold: Option[Double],
     bwRetryDelay: Option[Duration],
-    mmbwmonAttempts: Option[Int]
+    mmbwmonAttempts: Option[Int],
+    taskSpeedDuration: Option[Double]
 )

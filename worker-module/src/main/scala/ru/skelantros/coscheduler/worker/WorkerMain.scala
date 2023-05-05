@@ -33,7 +33,6 @@ object WorkerMain extends IOApp {
     }
 
     override def run(args: List[String]): IO[ExitCode] = {
-        loadConfiguration(args).foreach(println)
         loadConfiguration(args).flatMap(makeServer).getOrElse(IO.pure(ExitCode.Error))
     }
 }
