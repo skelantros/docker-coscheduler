@@ -10,6 +10,7 @@ trait WithRamBenchmark { this: SchedulingSystem =>
     private val avg: Iterable[Double] => Double = ns => ns.sum / ns.size
 
     // TODO не очень эффективно с точки зрения арифметики чисел с плавающей точки
+    // TODO parSequence запускает запросы параллельно, но mmbwmon всё равно обрабатывает их последовательно, можно заменить на sequence
     def avgRamBenchmark(node: Node)(attempts: Int): IO[Double] =
         (1 to attempts).map(_ => ramBenchmark(node)).toList.parSequence.map(avg)
 }

@@ -4,6 +4,7 @@ import cats.effect.{IO, Resource}
 import org.eclipse.paho.client.mqttv3.MqttClient
 import ru.skelantros.coscheduler.worker.WorkerConfiguration
 import ru.skelantros.coscheduler.worker.endpoints.{MmbwmonEndpoints, ServerResponse}
+import ru.skelantros.coscheduler.worker.measurer.MmbwmonMeasurer
 import sttp.capabilities.fs2.Fs2Streams
 import sttp.model.Uri
 import sttp.tapir.server.ServerEndpoint

@@ -9,6 +9,7 @@ import sttp.tapir.generic.auto._
 import sttp.tapir.json.circe._
 
 import java.nio.charset.StandardCharsets
+import scala.concurrent.duration.FiniteDuration
 
 object WorkerEndpoints {
     private val baseEndpoint = endpoint.in("docker").errorOut(jsonBody[EndpointError])
@@ -48,4 +49,10 @@ object WorkerEndpoints {
     final val nodeInfo = baseEndpoint.get
         .in("info")
         .out(jsonBody[Node])
+
+    final val taskSpeed = baseEndpoint.post
+        .in("taskSpeed")
+        .in(createdBody)
+        .in(query[FiniteDuration]("durationMs"))
+        .out(jsonBody[Double])
 }

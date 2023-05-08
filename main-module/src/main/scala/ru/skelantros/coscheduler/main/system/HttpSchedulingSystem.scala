@@ -3,14 +3,22 @@ import cats.effect.IO
 import ru.skelantros.coscheduler.model.{CpuSet, Node, Task}
 import ru.skelantros.coscheduler.main.system.SchedulingSystem.TaskLogs
 import ru.skelantros.coscheduler.image.ImageArchive
+import ru.skelantros.coscheduler.logging.Logger
 import ru.skelantros.coscheduler.main.Configuration
+import ru.skelantros.coscheduler.main.system.WithTaskSpeedEstimate.TaskSpeed
 import ru.skelantros.coscheduler.worker.endpoints.{AppEndpoint, MmbwmonEndpoints, WorkerEndpoints}
 import sttp.client3.http4s.Http4sBackend
 import sttp.model.Uri
 import sttp.tapir.DecodeResult
 import sttp.tapir.client.sttp.SttpClientInterpreter
 
-class HttpSchedulingSystem(val config: Configuration) extends SchedulingSystem with WithRamBenchmark {
+import scala.concurrent.duration.FiniteDuration
+
+class HttpSchedulingSystem(val config: Configuration)
+    extends SchedulingSystem
+    with WithRamBenchmark
+    with WithTaskSpeedEstimate {
+
     private val client = Http4sBackend.usingDefaultEmberClientBuilder[IO]()
     private val inter = SttpClientInterpreter()
 
@@ -64,8 +72,21 @@ class HttpSchedulingSystem(val config: Configuration) extends SchedulingSystem w
     override def taskLogs(task: Task.Created): IO[Option[TaskLogs]] =
         makeRequest(task.node.uri, WorkerEndpoints.taskLogs)(task) >> IO.pure(Some("Result")) // FIXME
 
+    override def isRunning(task: Task.Created): IO[Boolean] =
+        makeRequest(task.node.uri, WorkerEndpoints.isRunning)(task)
+
     // 1 - (measured - 0.33) / (1 - 0.33) = 1 + 0.33/0.67 - measured/0.67 = 1 / 0.67 - measured / 0.67 ~=~ 3/2 - 3/2 * measured = 3/2 (1 - measured)
     override def ramBenchmark(node: Node): IO[Double] = for {
         measured <- makeRequest(node.uri, MmbwmonEndpoints.measure)(())
     } yield 3 * (1 - measured) / 2
+
+    override def speedOf(duration: FiniteDuration)(task: Task.Created): IO[TaskSpeed] =
+        makeRequest(task.node.uri, WorkerEndpoints.taskSpeed)(task, duration)
+}
+
+object HttpSchedulingSystem {
+    def withLogging(config: Configuration): HttpSchedulingSystem with LoggingSchedulingSystem =
+        new HttpSchedulingSystem(config) with LoggingSchedulingSystem {
+            override def loggerConfig: Logger.Config = config.schedulingSystemLogging
+        }
 }
