@@ -142,8 +142,7 @@ class MemoryBWStrategy(val schedulingSystem: SchedulingSystem with WithRamBenchm
         } yield action
     }
 
-    override def execute(tasks: Vector[(TaskName, File)]): IO[Unit] = for {
-        nodes <- this.nodes
+    override def execute(nodes: Vector[Node], tasks: Vector[(TaskName, File)]): IO[Unit] = for {
         tasksRef <- Ref.of[IO, Set[StrategyTaskInfo]](tasks.map(StrategyTaskInfo(_)).toSet)
         tasksToWait <- nodes.map(NodeWorker(tasksRef)).map(_.start).parSequence
         action <- tasksToWait.flatten.map(schedulingSystem.waitForTask).parSequence >> IO.unit

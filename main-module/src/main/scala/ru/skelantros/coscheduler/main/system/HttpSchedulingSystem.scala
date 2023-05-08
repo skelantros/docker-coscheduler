@@ -1,6 +1,6 @@
 package ru.skelantros.coscheduler.main.system
 import cats.effect.IO
-import ru.skelantros.coscheduler.model.{CpuSet, Node, Task}
+import ru.skelantros.coscheduler.model.{CpuSet, Node, SessionContext, Task}
 import ru.skelantros.coscheduler.main.system.SchedulingSystem.TaskLogs
 import ru.skelantros.coscheduler.image.ImageArchive
 import ru.skelantros.coscheduler.logging.Logger
@@ -82,6 +82,9 @@ class HttpSchedulingSystem(val config: Configuration)
 
     override def speedOf(duration: FiniteDuration)(task: Task.Created): IO[TaskSpeed] =
         makeRequest(task.node.uri, WorkerEndpoints.taskSpeed)(task, duration)
+
+    override def initSession(sessionCtx: SessionContext)(node: Node): IO[Unit] =
+        makeRequest(node.uri, WorkerEndpoints.initSession)(sessionCtx)
 }
 
 object HttpSchedulingSystem {

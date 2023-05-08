@@ -15,8 +15,7 @@ trait ParallelStrategy extends Strategy {
 
     protected def singleNodeExecute(node: Node, tasks: Vector[Task.Built]): IO[Unit]
 
-    override def execute(tasks: Vector[StrategyTask]): IO[Unit] = for {
-        nodes <- this.nodes
+    override def execute(nodes: Vector[Node], tasks: Vector[StrategyTask]): IO[Unit] = for {
         sTasksWithNode <- tasks.zipWithIndex.view
             .map { case (sTask, idx) => (nodes(idx % nodes.size), sTask) }
             .map(Function.uncurried(schedulingSystem.buildTaskFromTuple _).tupled)

@@ -2,11 +2,12 @@ package ru.skelantros.coscheduler.worker.endpoints
 
 import cats.effect.IO
 import ru.skelantros.coscheduler.image.ImageArchive
-import ru.skelantros.coscheduler.model.{CpuSet, Node, Task}
+import ru.skelantros.coscheduler.model.{CpuSet, Node, SessionContext, Task}
 import sttp.capabilities.fs2.Fs2Streams
 import sttp.tapir._
 import sttp.tapir.generic.auto._
 import sttp.tapir.json.circe._
+import ru.skelantros.coscheduler.implicits._
 
 import java.nio.charset.StandardCharsets
 import scala.concurrent.duration.FiniteDuration
@@ -19,6 +20,10 @@ object WorkerEndpoints {
 
     private val builtBody = jsonBody[Task.Built]
     private val createdBody = jsonBody[Task.Created]
+
+    final val initSession = baseEndpoint.post
+        .in("initSession")
+        .in(jsonBody[SessionContext])
 
     final val build = baseEndpoint.post
         .in("build")

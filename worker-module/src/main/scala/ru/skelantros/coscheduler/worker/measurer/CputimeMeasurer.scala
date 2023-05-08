@@ -19,7 +19,7 @@ object CputimeMeasurer {
     def apply(measureTime: FiniteDuration)(containerId: String): IO[Option[Double]] = for {
         startTime <- IO.monotonic
         cpuStart <- IO(cpu(containerId))
-        _ <- IO.unit.delayBy(measureTime)
+        _ <- IO.sleep(measureTime)
         cpuEnd <- IO(cpu(containerId))
         endTime <- IO.monotonic
         cpuDiff = (cpuEnd, cpuStart).mapN(_ - _).map(_.toDouble)
