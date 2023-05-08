@@ -9,9 +9,9 @@ import scala.sys.process._
 object CputimeMeasurer {
     private val cpuRegex = """user_usec\s+(\d+)""".r
 
-    private def cpuStatsFile(containerId: String) = s"/sys/fs/cgroup/system.slice/docker-$containerId.scope/cpu.stat"
+    def cpuStatsFile(containerId: String) = s"/sys/fs/cgroup/system.slice/docker-$containerId.scope/cpu.stat"
 
-    private def cpu(containerId: String): Option[Long] =
+    def cpu(containerId: String): Option[Long] =
         Seq("cat", cpuStatsFile(containerId)).!!.split("\n").collectFirst {
             case cpuRegex(cpuStr) => cpuStr.toLongOption
         }.flatten
@@ -22,7 +22,7 @@ object CputimeMeasurer {
         _ <- IO.unit.delayBy(measureTime)
         cpuEnd <- IO(cpu(containerId))
         endTime <- IO.monotonic
-        cpuDiff = (cpuStart, cpuEnd).mapN(_ - _).map(_.toDouble)
+        cpuDiff = (cpuEnd, cpuStart).mapN(_ - _).map(_.toDouble)
         timeDiff = (endTime - startTime).toMillis
         result = cpuDiff.map(_ / timeDiff)
     } yield result

@@ -7,7 +7,7 @@ import ru.skelantros.coscheduler.model.Task
 import scala.concurrent.duration.FiniteDuration
 
 trait WithTaskSpeedEstimate { this: SchedulingSystem =>
-    def speedOf(task: Task.Created)(duration: FiniteDuration): IO[Option[TaskSpeed]]
+    def speedOf(duration: FiniteDuration)(task: Task.Created): IO[TaskSpeed]
 }
 
 object WithTaskSpeedEstimate {

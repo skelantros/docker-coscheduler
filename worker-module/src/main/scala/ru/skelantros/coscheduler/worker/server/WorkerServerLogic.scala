@@ -15,6 +15,7 @@ import sttp.capabilities.fs2.Fs2Streams
 import sttp.tapir.server.ServerEndpoint
 
 import java.io.File
+import scala.concurrent.duration.{Duration, DurationInt, FiniteDuration}
 
 class WorkerServerLogic(configuration: WorkerConfiguration) extends ServerLogic {
     private def createDirectory(dir: File): IO[Unit] = {
@@ -32,7 +33,7 @@ class WorkerServerLogic(configuration: WorkerConfiguration) extends ServerLogic 
 
     private def customTaskLogic[I, O](endpoint: AppEndpoint[I, O])(task: I => Task)(logic: I => IO[ServerResponse[O]]) =
         serverLogic(endpoint) { input =>
-            if (task(input).node != configuration.node)
+            if (task(input).node.id != configuration.node.id)
                 IO.pure(ServerResponse.badRequest(s"Task ${task(input).id} is located on node ${task(input).node}."))
             else
                 logic(input)
@@ -127,12 +128,20 @@ class WorkerServerLogic(configuration: WorkerConfiguration) extends ServerLogic 
         } yield ServerResponse(fs2LogStream(logs))
     }
 
+    private def measureTaskSpeed(task: Task.Created, duration: FiniteDuration): IO[ServerResponse[Double]] = for {
+        resultOpt <- TaskSpeedMeasurer(duration)(task)
+        result = resultOpt.fold(
+            ServerResponse.badRequest[Double](s"Incorrect task speed measurement result for task ${task.id}.")
+        )(ServerResponse(_))
+    } yield result
+
     final val taskSpeed = customTaskLogic(WorkerEndpoints.taskSpeed)(_._1) { case (task, duration) =>
         for {
             state <- containerState(task)
             result <-
-                if(!state.running) ServerResponse.badRequest(s"A container for task ${task.id} is not running.").pure[IO]
-                else TaskSpeedMeasurer(duration)(task).map(ServerResponse(_))
+                if(state.paused) ServerResponse.badRequest(s"A container for ${task.id} is paused.").pure[IO]
+                else if(!state.running) ServerResponse.badRequest(s"A container for ${task.id} is not running.").pure[IO]
+                else measureTaskSpeed(task, duration)
         } yield result
     }
 

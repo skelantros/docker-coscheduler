@@ -24,10 +24,24 @@ trait SchedulingSystem {
     def createTask(task: Task.Built, cpuset: Option[CpuSet] = None): IO[Task.Created]
     def startTask(task: Task.Created): IO[Task.Created]
     def pauseTask(task: Task.Created): IO[Task.Created]
+    def savePauseTask(task: Task.Created): IO[Task.Created] =
+        pauseTask(task).recoverWith {
+            case EndpointException(err) =>
+                IO.println(s"savePauseTask($task) recovered from error $err") >> IO.pure(task)
+        }
+
     def resumeTask(task: Task.Created): IO[Task.Created]
+    def saveResumeTask(task: Task.Created): IO[Task.Created] =
+        resumeTask(task).recoverWith {
+            case EndpointException(err) =>
+                IO.println(s"saveResumeTask($task) recovered from error $err") >> IO.pure(task)
+        }
+
     def stopTask(task: Task.Created): IO[Task.Created]
     def waitForTask(task: Task.Created): IO[Option[TaskLogs]]
     def taskLogs(task: Task.Created): IO[Option[TaskLogs]]
+
+    def isRunning(task: Task.Created): IO[Boolean]
 }
 
 object SchedulingSystem {

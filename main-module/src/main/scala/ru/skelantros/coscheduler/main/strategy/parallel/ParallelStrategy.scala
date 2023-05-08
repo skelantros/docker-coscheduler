@@ -17,15 +17,14 @@ trait ParallelStrategy extends Strategy {
 
     override def execute(tasks: Vector[StrategyTask]): IO[Unit] = for {
         nodes <- this.nodes
-        sTasksWithNode <- tasks.zipWithIndex.map {
-            case (sTask, idx) =>
-                val node = nodes(idx % nodes.size)
-                (
-                    node.pure[IO],
-                    schedulingSystem.buildTaskFromTuple(node)(sTask)
-                ).tupled
-        }.parSequence
-        nodesTasks = sTasksWithNode.groupMap(_._1)(_._2)
-        action <- nodesTasks.toList.map((singleNodeExecute _).tupled).parSequence >> IO.unit
+        sTasksWithNode <- tasks.zipWithIndex.view
+            .map { case (sTask, idx) => (nodes(idx % nodes.size), sTask) }
+            .map(Function.uncurried(schedulingSystem.buildTaskFromTuple _).tupled)
+            .toVector
+            .parSequence
+        action <- sTasksWithNode.groupBy(_.node)
+            .map((singleNodeExecute _).tupled)
+            .toList
+            .parSequence >> IO.unit
     } yield action
 }

@@ -53,6 +53,6 @@ object WorkerEndpoints {
     final val taskSpeed = baseEndpoint.post
         .in("taskSpeed")
         .in(createdBody)
-        .in(jsonBody[FiniteDuration])
-        .out(jsonBody[Option[Double]])
+        .in(query[FiniteDuration]("durationMs"))
+        .out(jsonBody[Double])
 }

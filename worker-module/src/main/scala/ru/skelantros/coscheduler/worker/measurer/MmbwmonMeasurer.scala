@@ -1,9 +1,9 @@
-package ru.skelantros.coscheduler.worker.server
+package ru.skelantros.coscheduler.worker.measurer
 
 import org.eclipse.paho.client.mqttv3._
 
-import scala.sys.process._
 import scala.concurrent.{ExecutionContext, Future, Promise}
+import scala.sys.process._
 
 // TODO переписать на IO
 object MmbwmonMeasurer {
