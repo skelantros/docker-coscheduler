@@ -23,6 +23,6 @@ trait AbstractMainApp[S <: SchedulingSystem] extends IOApp {
 
         strategyWithTasks.fold(
             IO.pure(ExitCode.Error)
-        ) { case (strategy, tasks) => strategy.execute(tasks) >> IO.pure(ExitCode.Success) }
+        ) { case (strategy, tasks) => strategy.executeWithInit(tasks) >> IO.pure(ExitCode.Success) }
     }
 }

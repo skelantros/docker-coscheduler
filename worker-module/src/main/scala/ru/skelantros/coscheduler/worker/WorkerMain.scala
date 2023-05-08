@@ -1,9 +1,10 @@
 package ru.skelantros.coscheduler.worker
 
-import cats.effect.{ExitCode, IO, IOApp}
+import cats.effect.{ExitCode, IO, IOApp, Ref}
 import com.comcast.ip4s.{Ipv4Address, Port}
 import org.http4s.ember.server.EmberServerBuilder
 import pureconfig.ConfigSource
+import ru.skelantros.coscheduler.model.SessionContext
 import ru.skelantros.coscheduler.worker.server.{MmbwmonServerLogic, WorkerServerLogic}
 import sttp.tapir.server.http4s.Http4sServerInterpreter
 
@@ -13,9 +14,9 @@ object WorkerMain extends IOApp {
     private def loadConfiguration(args: List[String]): Option[WorkerConfiguration] =
         args.headOption.fold(ConfigSource.default)(ConfigSource.file).load[WorkerConfiguration].toOption
 
-    private def makeServer(configuration: WorkerConfiguration) = {
+    private def makeServer(configuration: WorkerConfiguration, ctxRef: Ref[IO, Option[SessionContext]]) = {
         val serverLogic =
-            (new WorkerServerLogic(configuration) ++ new MmbwmonServerLogic(configuration)(ExecutionContext.global)).routes
+            (new WorkerServerLogic(configuration, ctxRef) ++ new MmbwmonServerLogic(configuration)(ExecutionContext.global)).routes
 
         val httpApp = Http4sServerInterpreter[IO].toRoutes(serverLogic).orNotFound
 
@@ -32,7 +33,8 @@ object WorkerMain extends IOApp {
             .as(ExitCode.Success)
     }
 
-    override def run(args: List[String]): IO[ExitCode] = {
-        loadConfiguration(args).flatMap(makeServer).getOrElse(IO.pure(ExitCode.Error))
-    }
+    override def run(args: List[String]): IO[ExitCode] = for {
+        ref <- Ref.of[IO, Option[SessionContext]](None)
+        res <- loadConfiguration(args).flatMap(makeServer(_, ref)).getOrElse(IO.pure(ExitCode.Error))
+    } yield res
 }

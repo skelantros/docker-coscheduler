@@ -4,6 +4,7 @@ import io.circe.Codec
 import io.circe.generic.semiauto.deriveCodec
 import sttp.model.StatusCode
 import sttp.tapir.codec.enumeratum._
+import ru.skelantros.coscheduler.implicits._
 
 case class EndpointError(code: StatusCode, msg: Option[String])
 object EndpointError {

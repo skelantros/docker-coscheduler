@@ -1,7 +1,7 @@
 package ru.skelantros.coscheduler.main.system
 
 import cats.effect.IO
-import ru.skelantros.coscheduler.model.{CpuSet, Node, Task}
+import ru.skelantros.coscheduler.model.{CpuSet, Node, SessionContext, Task}
 import ru.skelantros.coscheduler.main.system.SchedulingSystem.TaskLogs
 import ru.skelantros.coscheduler.image.{ImageArchive, ImageArchiver}
 import ru.skelantros.coscheduler.main.strategy.Strategy.StrategyTask
@@ -42,6 +42,8 @@ trait SchedulingSystem {
     def taskLogs(task: Task.Created): IO[Option[TaskLogs]]
 
     def isRunning(task: Task.Created): IO[Boolean]
+
+    def initSession(sessionCtx: SessionContext)(node: Node): IO[Unit]
 }
 
 object SchedulingSystem {

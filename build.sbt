@@ -35,6 +35,12 @@ lazy val http4s = Seq(
     "org.http4s" %% "http4s-ember-client" % http4sVersion
 )
 
+lazy val doobieVersion = "1.0.0-RC1"
+lazy val doobie = Seq(
+    "org.tpolecat" %% "doobie-core"     % doobieVersion,
+    "org.tpolecat" %% "doobie-postgres" % doobieVersion
+)
+
 lazy val slf4j = "org.slf4j" % "slf4j-simple" % "2.0.7"
 
 lazy val mqtt = "org.eclipse.paho" % "org.eclipse.paho.client.mqttv3" % "1.2.5"
@@ -56,13 +62,13 @@ lazy val mainModule = (project in file("main-module"))
     )
 
 lazy val workerModule = (project in file("worker-module"))
-    .dependsOn(models)
+    .dependsOn(models, ledger)
     .settings(
-        libraryDependencies ++= (tapirDeps ++ pureconfig ++ http4s :+ dockerClient :+ slf4j) :+ mqtt
+        libraryDependencies ++= tapirDeps ++ pureconfig ++ http4s :+ dockerClient :+ slf4j :+ mqtt
     )
 
 lazy val sandbox = (project in file("sandbox"))
-    .dependsOn(models)
+    .dependsOn(models, ledger)
     .settings(
         libraryDependencies ++= sttpClientDeps ++ tapirDeps ++ http4s :+ dockerClient :+ mqtt
     )
@@ -71,4 +77,11 @@ lazy val logging = (project in file("logging"))
     .settings(
         libraryDependencies += cats,
         libraryDependencies += catsEffect
+    )
+
+lazy val ledger = (project in file("ledger"))
+    .dependsOn(models)
+    .settings(
+        libraryDependencies += catsEffect,
+        libraryDependencies ++= doobie
     )

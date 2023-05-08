@@ -3,12 +3,15 @@ package ru.skelantros.coscheduler.worker
 import pureconfig.ConfigReader
 import pureconfig.error.FailureReason
 import pureconfig.generic.semiauto.deriveReader
+import ru.skelantros.coscheduler.ledger.LedgerTransactor
 import ru.skelantros.coscheduler.model.Node
 import sttp.model.Uri
+import ru.skelantros.coscheduler.implicits._
 
+import scala.concurrent.duration.{Duration, FiniteDuration}
 import scala.sys.process._
 
-case class WorkerConfiguration(imagesFolder: String, node: Node, mqttUri: Option[Uri])
+case class WorkerConfiguration(imagesFolder: String, node: Node, mqttUri: Option[Uri], ledgerCompletionDelay: Option[FiniteDuration], db: LedgerTransactor.Config)
 
 object WorkerConfiguration {
     private case class PartialNode(id: String, uri: Uri, cores: Option[Int]) {
@@ -30,4 +33,6 @@ object WorkerConfiguration {
         deriveReader[PartialNode].map(_.toNode(cpusCount()))
 
     implicit val reader: ConfigReader[WorkerConfiguration] = deriveReader
+
+    implicit val dbReader: ConfigReader[LedgerTransactor.Config] = deriveReader
 }

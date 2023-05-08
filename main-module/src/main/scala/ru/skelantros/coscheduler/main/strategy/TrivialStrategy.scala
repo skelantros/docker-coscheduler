@@ -5,11 +5,11 @@ import cats.implicits.catsSyntaxParallelSequence1
 import ru.skelantros.coscheduler.main.Configuration
 import ru.skelantros.coscheduler.main.strategy.Strategy.StrategyTask
 import ru.skelantros.coscheduler.main.system.SchedulingSystem
+import ru.skelantros.coscheduler.model.Node
 
 class TrivialStrategy(val schedulingSystem: SchedulingSystem, val config: Configuration) extends Strategy {
-    override def execute(tasks: Vector[StrategyTask]): IO[Unit] = {
+    override def execute(nodes: Vector[Node], tasks: Vector[StrategyTask]): IO[Unit] = {
         for {
-            nodes <- this.nodes
             result <- tasks.zipWithIndex.map {
                 case (taskWithName, idx) =>
                     for {
