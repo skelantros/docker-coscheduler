@@ -18,6 +18,7 @@ class FCStrategy(val schedulingSystem: SchedulingSystem with WithTaskSpeedEstima
 
     private val measurementTime = config.taskSpeed.flatMap(_.measurement).getOrElse(250.millis)
     private val waitBeforeMeasurementTime = config.taskSpeed.flatMap(_.waitBeforeMeasurement).getOrElse(100.millis)
+    private val measurementAttempts = config.taskSpeed.flatMap(_.attempts).getOrElse(1)
 
     override protected def singleNodeExecute(node: Node, tasks: Vector[Task.Built]): IO[Unit] =
         NodeWorker(node).execute(tasks)
@@ -27,7 +28,7 @@ class FCStrategy(val schedulingSystem: SchedulingSystem with WithTaskSpeedEstima
             _ <- log.info(node.id)(s"started measuring combination $combination")
             runTasks <- combination.genParMap(_.toList)(schedulingSystem.saveResumeTask)
             _ <- IO.unit.delayBy(waitBeforeMeasurementTime) // возможно не нужно
-            taskSpeeds <- runTasks.parMap(schedulingSystem.speedOf(measurementTime)) // лучше брать среднее
+            taskSpeeds <- runTasks.parMap(schedulingSystem.speedOf(measurementTime, measurementAttempts)) // лучше брать среднее
             _ <- log.info(node.id)(s"taskSpeeds = $taskSpeeds")
             _ <- runTasks.parMap(schedulingSystem.savePauseTask)
         } yield CombinationWithSpeed(combination, taskSpeeds.sum)

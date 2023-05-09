@@ -181,20 +181,23 @@ class WorkerServerLogic(configuration: WorkerConfiguration, sessionCtxRef: Ref[I
         } yield ServerResponse(fs2LogStream(logs))
     }
 
-    private def measureTaskSpeed(task: Task.Created, duration: FiniteDuration): IO[ServerResponse[Double]] = for {
-        resultOpt <- TaskSpeedMeasurer(duration)(task)
+    private val sumOpts = (x: Option[Double], y: Option[Double]) => (x, y).mapN(_ + _)
+
+    private def measureTaskSpeed(task: Task.Created, attempts: Int, duration: FiniteDuration): IO[ServerResponse[Double]] = for {
+        resultOpts <- (0 until attempts).map(_ => TaskSpeedMeasurer(duration)(task)).toVector.sequence
+        resultOpt = resultOpts.foldLeft(Option.empty[Double])(sumOpts).map(_ / attempts)
         result = resultOpt.fold(
             ServerResponse.badRequest[Double](s"Incorrect task speed measurement result for task ${task.id}.")
         )(ServerResponse(_))
     } yield result
 
-    final val taskSpeed = customTaskLogic(WorkerEndpoints.taskSpeed)(_._1) { case (task, duration) =>
+    final val taskSpeed = customTaskLogic(WorkerEndpoints.taskSpeed)(_._1) { case (task, attempts, duration) =>
         for {
             state <- containerState(task)
             result <-
                 if(state.paused) ServerResponse.badRequest(s"A container for ${task.id} is paused.").pure[IO]
                 else if(!state.running) ServerResponse.badRequest(s"A container for ${task.id} is not running.").pure[IO]
-                else measureTaskSpeed(task, duration)
+                else measureTaskSpeed(task, attempts, duration)
         } yield result
     }
 

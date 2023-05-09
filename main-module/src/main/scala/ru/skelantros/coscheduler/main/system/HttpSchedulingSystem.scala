@@ -80,8 +80,8 @@ class HttpSchedulingSystem(val config: Configuration)
         measured <- makeRequest(node.uri, MmbwmonEndpoints.measure)(())
     } yield 3 * (1 - measured) / 2
 
-    override def speedOf(duration: FiniteDuration)(task: Task.Created): IO[TaskSpeed] =
-        makeRequest(task.node.uri, WorkerEndpoints.taskSpeed)(task, duration)
+    override def speedOf(duration: FiniteDuration, attempts: Int)(task: Task.Created): IO[TaskSpeed] =
+        makeRequest(task.node.uri, WorkerEndpoints.taskSpeed)(task, attempts, duration)
 
     override def initSession(sessionCtx: SessionContext)(node: Node): IO[Unit] =
         makeRequest(node.uri, WorkerEndpoints.initSession)(sessionCtx)

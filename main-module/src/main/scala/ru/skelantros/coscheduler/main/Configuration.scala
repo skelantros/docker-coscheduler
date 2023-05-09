@@ -29,7 +29,8 @@ case class Configuration(
 
 object Configuration {
     case class TaskSpeed(measurement: Option[FiniteDuration],
-                         waitBeforeMeasurement: Option[FiniteDuration])
+                         waitBeforeMeasurement: Option[FiniteDuration],
+                         attempts: Option[Int])
 
     case class LoggingOptions(
          schedulingSystem: Option[Logger.Config],
