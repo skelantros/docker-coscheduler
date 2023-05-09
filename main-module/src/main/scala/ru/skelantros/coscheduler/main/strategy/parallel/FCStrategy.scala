@@ -28,7 +28,7 @@ class FCStrategy(val schedulingSystem: SchedulingSystem with WithTaskSpeedEstima
             _ <- log.info(node.id)(s"started measuring combination $combination")
             runTasks <- combination.genParMap(_.toList)(schedulingSystem.saveResumeTask)
             _ <- IO.unit.delayBy(waitBeforeMeasurementTime) // возможно не нужно
-            taskSpeeds <- runTasks.parMap(schedulingSystem.speedOf(measurementTime, measurementAttempts)) // лучше брать среднее
+            taskSpeeds <- runTasks.parMap(schedulingSystem.speedOf(measurementTime, measurementAttempts))
             _ <- log.info(node.id)(s"taskSpeeds = $taskSpeeds")
             _ <- runTasks.parMap(schedulingSystem.savePauseTask)
         } yield CombinationWithSpeed(combination, taskSpeeds.sum)
