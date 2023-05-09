@@ -57,20 +57,17 @@ class HttpSchedulingSystem(val config: Configuration)
     override def stopTask(task: Task.Created): IO[Task.Created] =
         makeRequest(task.node.uri, WorkerEndpoints.stop)(task).map(_.copy(node = task.node))
 
-    override def waitForTask(task: Task.Created): IO[Option[TaskLogs]] = {
-        def go(task: Task.Created): IO[Option[TaskLogs]] =
+    override def waitForTask(task: Task.Created): IO[Boolean] = {
+        def go(task: Task.Created): IO[Boolean] =
             for {
                 isRunning <- makeRequest(task.node.uri, WorkerEndpoints.isRunning)(task)
                 res <-
                     if(isRunning) go(task).delayBy(config.waitForTaskDelay)
-                    else taskLogs(task)
+                    else IO.pure(true)
             } yield res
 
         go(task)
     }
-
-    override def taskLogs(task: Task.Created): IO[Option[TaskLogs]] =
-        makeRequest(task.node.uri, WorkerEndpoints.taskLogs)(task) >> IO.pure(Some("Result")) // FIXME
 
     override def isRunning(task: Task.Created): IO[Boolean] =
         makeRequest(task.node.uri, WorkerEndpoints.isRunning)(task)

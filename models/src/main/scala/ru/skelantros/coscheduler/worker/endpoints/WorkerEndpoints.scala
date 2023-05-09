@@ -1,15 +1,12 @@
 package ru.skelantros.coscheduler.worker.endpoints
 
-import cats.effect.IO
 import ru.skelantros.coscheduler.image.ImageArchive
+import ru.skelantros.coscheduler.implicits._
 import ru.skelantros.coscheduler.model.{CpuSet, Node, SessionContext, Task}
-import sttp.capabilities.fs2.Fs2Streams
 import sttp.tapir._
 import sttp.tapir.generic.auto._
 import sttp.tapir.json.circe._
-import ru.skelantros.coscheduler.implicits._
 
-import java.nio.charset.StandardCharsets
 import scala.concurrent.duration.FiniteDuration
 
 object WorkerEndpoints {
@@ -40,11 +37,6 @@ object WorkerEndpoints {
     final val pause = taskEndpoint.in("pause")
     final val resume = taskEndpoint.in("resume")
     final val stop = taskEndpoint.in("stop")
-
-    final val taskLogs = baseEndpoint.post
-        .in("logs")
-        .in(createdBody)
-        .out(streamTextBody(Fs2Streams[IO])(CodecFormat.TextPlain(), Some(StandardCharsets.UTF_8)))
 
     final val isRunning = baseEndpoint.post
         .in("running")

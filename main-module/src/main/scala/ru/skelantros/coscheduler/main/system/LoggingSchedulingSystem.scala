@@ -35,11 +35,8 @@ trait LoggingSchedulingSystem extends SchedulingSystem with WithRamBenchmark wit
     abstract override def stopTask(task: Task.Created): IO[Task.Created] =
         super.stopTask(task) <* log.debug("")(s"stopTask($task)")
 
-    abstract override def waitForTask(task: Task.Created): IO[Option[TaskLogs]] =
+    abstract override def waitForTask(task: Task.Created): IO[Boolean] =
         super.waitForTask(task) <* log.debug("")(s"waitForTask($task)")
-
-    abstract override def taskLogs(task: Task.Created): IO[Option[TaskLogs]] =
-        super.taskLogs(task) <* log.debug("")(s"taskLogs($task)")
 
     abstract override def ramBenchmark(node: Node): IO[Double] = for {
         result <- super.ramBenchmark(node)

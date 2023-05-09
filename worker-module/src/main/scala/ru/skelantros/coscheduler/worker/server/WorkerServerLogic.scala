@@ -2,11 +2,8 @@ package ru.skelantros.coscheduler.worker.server
 
 import cats.effect.{IO, Ref}
 import cats.implicits._
-import com.spotify.docker.client.DockerClient.LogsParam
-import com.spotify.docker.client.LogStream
 import com.spotify.docker.client.messages.{ContainerConfig, HostConfig}
 import doobie.util.transactor.Transactor
-import fs2._
 import ru.skelantros.coscheduler.ledger.{Ledger, LedgerEvent, LedgerNote, LedgerTransactor}
 import ru.skelantros.coscheduler.model.{SessionContext, Task}
 import ru.skelantros.coscheduler.worker.WorkerConfiguration
@@ -168,19 +165,6 @@ class WorkerServerLogic(configuration: WorkerConfiguration, sessionCtxRef: Ref[I
 
     final val nodeInfo = serverLogic(WorkerEndpoints.nodeInfo) { _ => ServerResponse(configuration.node).pure[IO] }
 
-    // FIXME
-    private def fs2LogStream(logStream: LogStream) = {
-        fs2.Stream.unfold[IO, LogStream, String](logStream)(remLogs => if(remLogs.hasNext) Some((new String(remLogs.next.content().array()), remLogs)) else {remLogs.close(); None})
-            .flatMap(str => Stream.chunk(Chunk.array(str.toCharArray)))
-            .map(_.toByte)
-    }
-
-    final val taskLogs = taskLogic(WorkerEndpoints.taskLogs) { task =>
-        for {
-            logs <- DockerClientResource(_.logs(task.containerId, LogsParam.stdout, LogsParam.stderr))
-        } yield ServerResponse(fs2LogStream(logs))
-    }
-
     private val sumOpts = (x: Option[Double], y: Option[Double]) => (x, y).mapN(_ + _)
 
     private def measureTaskSpeed(task: Task.Created, attempts: Int, duration: FiniteDuration): IO[ServerResponse[Double]] = for {
@@ -209,7 +193,6 @@ class WorkerServerLogic(configuration: WorkerConfiguration, sessionCtxRef: Ref[I
         resume,
         stop,
         isRunning,
-        taskLogs,
         nodeInfo,
         taskSpeed,
         initSession
