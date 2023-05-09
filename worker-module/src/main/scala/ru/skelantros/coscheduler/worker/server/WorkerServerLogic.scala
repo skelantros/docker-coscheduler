@@ -42,7 +42,7 @@ class WorkerServerLogic(configuration: WorkerConfiguration, sessionCtxRef: Ref[I
         containerState <- containerState(task)
         isRunning = containerState.running
         action <-
-            if (!isRunning) LedgerNote.generate(configuration.node)(task, LedgerEvent.Completed).flatMap(Ledger.addNote[IO])
+            if (!isRunning) IO.println(s"Task $task is completed") >> LedgerNote.generate(configuration.node)(task, LedgerEvent.Completed).flatMap(Ledger.addNote[IO])
             else addLedgerNoteOnCompletionWithCtx(task).delayBy(ledgerCompletionDelay)
     } yield action
 
