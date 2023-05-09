@@ -40,37 +40,34 @@ class HttpSchedulingSystem(val config: Configuration)
         makeRequest(uri, WorkerEndpoints.nodeInfo)(()).map(_.copy(uri = uri))
 
     override def buildTask(node: Node)(image: ImageArchive, taskName: String): IO[Task.Built] =
-        makeRequest(node.uri, WorkerEndpoints.build)(image, taskName)
+        makeRequest(node.uri, WorkerEndpoints.build)(image, taskName).map(_.copy(node = node))
 
     override def createTask(task: Task.Built, cpuset: Option[CpuSet] = None): IO[Task.Created] =
-        makeRequest(task.node.uri, WorkerEndpoints.create)(task, cpuset)
+        makeRequest(task.node.uri, WorkerEndpoints.create)(task, cpuset).map(_.copy(node = task.node))
 
     override def startTask(task: Task.Created): IO[Task.Created] =
-        makeRequest(task.node.uri, WorkerEndpoints.start)(task)
+        makeRequest(task.node.uri, WorkerEndpoints.start)(task).map(_.copy(node = task.node))
 
     override def pauseTask(task: Task.Created): IO[Task.Created] =
-        makeRequest(task.node.uri, WorkerEndpoints.pause)(task)
+        makeRequest(task.node.uri, WorkerEndpoints.pause)(task).map(_.copy(node = task.node))
 
     override def resumeTask(task: Task.Created): IO[Task.Created] =
-        makeRequest(task.node.uri, WorkerEndpoints.resume)(task)
+        makeRequest(task.node.uri, WorkerEndpoints.resume)(task).map(_.copy(node = task.node))
 
     override def stopTask(task: Task.Created): IO[Task.Created] =
-        makeRequest(task.node.uri, WorkerEndpoints.stop)(task)
+        makeRequest(task.node.uri, WorkerEndpoints.stop)(task).map(_.copy(node = task.node))
 
-    override def waitForTask(task: Task.Created): IO[Option[TaskLogs]] = {
-        def go(task: Task.Created): IO[Option[TaskLogs]] =
+    override def waitForTask(task: Task.Created): IO[Boolean] = {
+        def go(task: Task.Created): IO[Boolean] =
             for {
                 isRunning <- makeRequest(task.node.uri, WorkerEndpoints.isRunning)(task)
                 res <-
                     if(isRunning) go(task).delayBy(config.waitForTaskDelay)
-                    else taskLogs(task)
+                    else IO.pure(true)
             } yield res
 
         go(task)
     }
-
-    override def taskLogs(task: Task.Created): IO[Option[TaskLogs]] =
-        makeRequest(task.node.uri, WorkerEndpoints.taskLogs)(task) >> IO.pure(Some("Result")) // FIXME
 
     override def isRunning(task: Task.Created): IO[Boolean] =
         makeRequest(task.node.uri, WorkerEndpoints.isRunning)(task)
@@ -80,8 +77,8 @@ class HttpSchedulingSystem(val config: Configuration)
         measured <- makeRequest(node.uri, MmbwmonEndpoints.measure)(())
     } yield 3 * (1 - measured) / 2
 
-    override def speedOf(duration: FiniteDuration)(task: Task.Created): IO[TaskSpeed] =
-        makeRequest(task.node.uri, WorkerEndpoints.taskSpeed)(task, duration)
+    override def speedOf(duration: FiniteDuration, attempts: Int)(task: Task.Created): IO[TaskSpeed] =
+        makeRequest(task.node.uri, WorkerEndpoints.taskSpeed)(task, attempts, duration)
 
     override def initSession(sessionCtx: SessionContext)(node: Node): IO[Unit] =
         makeRequest(node.uri, WorkerEndpoints.initSession)(sessionCtx)

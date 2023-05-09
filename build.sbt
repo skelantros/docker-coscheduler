@@ -4,7 +4,6 @@ ThisBuild / scalaVersion := "2.13.10"
 
 lazy val cats = "org.typelevel" %% "cats-core" % "2.9.0"
 lazy val catsEffect = "org.typelevel" %% "cats-effect" % "3.4.8"
-lazy val fs2 = "co.fs2" %% "fs2-core" % "3.6.1"
 lazy val dockerClient = "com.spotify" % "docker-client" % "8.16.0"
 
 lazy val pureconfigVersion = "0.17.2"
@@ -23,7 +22,6 @@ lazy val tapirDeps = Seq(
 )
 
 lazy val sttpClientDeps = Seq(
-    "com.softwaremill.sttp.client3" %% "fs2" % "3.8.15",
     "com.softwaremill.sttp.client3" %% "core" % "3.8.15",
     "com.softwaremill.sttp.client3" %% "http4s-backend" % "3.8.15"
 )
