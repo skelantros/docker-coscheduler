@@ -169,7 +169,7 @@ class WorkerServerLogic(configuration: WorkerConfiguration, sessionCtxRef: Ref[I
 
     private def measureTaskSpeed(task: Task.Created, attempts: Int, duration: FiniteDuration): IO[ServerResponse[Double]] = for {
         resultOpts <- (0 until attempts).map(_ => TaskSpeedMeasurer(duration)(task)).toVector.sequence
-        resultOpt = resultOpts.foldLeft(Option.empty[Double])(sumOpts).map(_ / attempts)
+        resultOpt = resultOpts.foldLeft(Option(0d))(sumOpts).map(_ / attempts)
         result = resultOpt.fold(
             ServerResponse.badRequest[Double](s"Incorrect task speed measurement result for task ${task.id}.")
         )(ServerResponse(_))

@@ -3,16 +3,13 @@ import cats.effect.IO
 import cats.implicits._
 import ru.skelantros.coscheduler.image.ImageArchive
 import ru.skelantros.coscheduler.logging.{DefaultLogger, Logger}
-import ru.skelantros.coscheduler.main.system.SchedulingSystem.TaskLogs
 import ru.skelantros.coscheduler.main.system.WithTaskSpeedEstimate.TaskSpeed
 import ru.skelantros.coscheduler.model.{CpuSet, Node, Task}
 import sttp.model.Uri
 
 import scala.concurrent.duration.FiniteDuration
 
-trait LoggingSchedulingSystem extends SchedulingSystem with WithRamBenchmark with WithTaskSpeedEstimate with DefaultLogger {
-
-    def loggerConfig: Logger.Config
+trait LoggingSchedulingSystem extends SchedulingSystem with WithMmbwmon with WithTaskSpeedEstimate with DefaultLogger {
 
     abstract override def nodeInfo(uri: Uri): IO[Node] =
         super.nodeInfo(uri) <* log.debug("")(s"nodeInfo($uri)")
@@ -38,13 +35,13 @@ trait LoggingSchedulingSystem extends SchedulingSystem with WithRamBenchmark wit
     abstract override def waitForTask(task: Task.Created): IO[Boolean] =
         super.waitForTask(task) <* log.debug("")(s"waitForTask($task)")
 
-    abstract override def ramBenchmark(node: Node): IO[Double] = for {
-        result <- super.ramBenchmark(node)
+    abstract override def mmbwmon(node: Node): IO[Double] = for {
+        result <- super.mmbwmon(node)
         _ <- log.debug("")(s"ramBenchmark($node) = $result")
     } yield result
 
-    override def avgRamBenchmark(node: Node)(attempts: Int): IO[Double] = for {
-        result <- super.avgRamBenchmark(node)(attempts)
+    override def avgMmbwmon(node: Node)(attempts: Int): IO[Double] = for {
+        result <- super.avgMmbwmon(node)(attempts)
         _ <- log.debug("")(s"avgRamBenchmark($node) = $result")
     } yield result
 

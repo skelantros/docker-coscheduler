@@ -4,13 +4,13 @@ import cats.effect.IO
 import ru.skelantros.coscheduler.model.Node
 import cats.implicits._
 
-trait WithRamBenchmark { this: SchedulingSystem =>
-    def ramBenchmark(node: Node): IO[Double]
+trait WithMmbwmon { this: SchedulingSystem =>
+    def mmbwmon(node: Node): IO[Double]
 
     private val avg: Iterable[Double] => Double = ns => ns.sum / ns.size
 
     // TODO не очень эффективно с точки зрения арифметики чисел с плавающей точки
     // TODO parSequence запускает запросы параллельно, но mmbwmon всё равно обрабатывает их последовательно, можно заменить на sequence
-    def avgRamBenchmark(node: Node)(attempts: Int): IO[Double] =
-        (1 to attempts).map(_ => ramBenchmark(node)).toList.parSequence.map(avg)
+    def avgMmbwmon(node: Node)(attempts: Int): IO[Double] =
+        (1 to attempts).map(_ => mmbwmon(node)).toList.parSequence.map(avg)
 }

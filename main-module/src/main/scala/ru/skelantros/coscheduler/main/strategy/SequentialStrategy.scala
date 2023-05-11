@@ -26,7 +26,7 @@ class SequentialStrategy(val schedulingSystem: SchedulingSystem, val config: Con
                     schedulingSystem.buildTaskFromTuple(node)(task)
                         .flatMap(schedulingSystem.createTask(_))
                         .flatMap(schedulingSystem.startTask)
-                        .flatMap(schedulingSystem.waitForTask) >> execute
+                        .flatMap(schedulingSystem.waitForTask) >> log.debug(node.id)(s"$task executed.") >> execute
                 case None => IO.unit
             }
         } yield action
