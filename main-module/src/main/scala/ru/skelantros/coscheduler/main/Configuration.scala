@@ -1,7 +1,7 @@
 package ru.skelantros.coscheduler.main
 
 import ru.skelantros.coscheduler.logging.Logger
-import ru.skelantros.coscheduler.main.Configuration.LoggingOptions
+import ru.skelantros.coscheduler.main.Configuration.{LoggingOptions, MmbwmonOptions, SpeedTest}
 import ru.skelantros.coscheduler.main.strategy.Strategy.StrategyTask
 import ru.skelantros.coscheduler.model.Node
 import sttp.client3.UriContext
@@ -14,11 +14,10 @@ case class Configuration(
     nodesUri: Vector[Uri],
     tasks: Vector[StrategyTask],
     waitForTaskDelay: Duration,
-    bwThreshold: Option[Double],
-    bwRetryDelay: Option[Duration],
-    mmbwmonAttempts: Option[Int],
     taskSpeed: Option[Configuration.TaskSpeed],
-    logging: Option[LoggingOptions]
+    logging: Option[LoggingOptions],
+    speedTest: Option[SpeedTest],
+    mmbwmon: Option[MmbwmonOptions]
 ) {
     val schedulingSystemLogging: Logger.Config =
         logging.flatMap(_.schedulingSystem).getOrElse(Logger.defaultConfig)
@@ -36,4 +35,8 @@ object Configuration {
          schedulingSystem: Option[Logger.Config],
          strategy: Option[Logger.Config]
     )
+
+    case class MmbwmonOptions(waitBeforeMeasurement: Option[FiniteDuration], attempts: Option[Int], retryDelay: Option[FiniteDuration], threshold: Option[Double])
+
+    case class SpeedTest(tasks: Vector[StrategyTask], params: TaskSpeed, nodeUri: Uri)
 }

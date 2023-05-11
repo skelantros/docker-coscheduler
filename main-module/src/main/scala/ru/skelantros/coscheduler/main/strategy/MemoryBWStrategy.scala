@@ -58,13 +58,13 @@ import scala.concurrent.duration.DurationInt
  * задач), и затем ожидает выполнения всех задач. Когда все задачи закончат выполнение, программа завершает выполнение.
  */
 class MemoryBWStrategy(val schedulingSystem: SchedulingSystem with WithRamBenchmark,
-                       val config: Configuration) extends Strategy {
-    private val bmAttempts = config.mmbwmonAttempts.getOrElse(5)
-    private val bwRetryDelay = config.bwRetryDelay.getOrElse(1.seconds)
-    private val bwThreshold = config.bwThreshold.getOrElse(0.9)
+                       val config: Configuration) extends Strategy { self =>
+    private val bmAttempts = config.mmbwmon.flatMap(_.attempts).getOrElse(5)
+    private val bwRetryDelay = config.mmbwmon.flatMap(_.retryDelay).getOrElse(1.seconds)
+    private val bwThreshold = config.mmbwmon.flatMap(_.threshold).getOrElse(0.9)
 
     private case class NodeWorker(tasksRef: Ref[IO, Set[StrategyTaskInfo]])(node: Node) {
-        private def log(msg: =>String): IO[Unit] = IO.println(s"[strategy-${node.id}] $msg")
+        private def log(msg: =>String): IO[Unit] = self.log.debug(node.id)(msg)
 
         // отменяет выполнение задачи и возвращает ее в общую очередь без отметки выполнения и с фейлед для данного узла
         private def migrateTask(taskInfo: StrategyTaskInfo, task: Task.Created): IO[Unit] = for {
@@ -141,9 +141,6 @@ class MemoryBWStrategy(val schedulingSystem: SchedulingSystem with WithRamBenchm
             action <- go(tasksCountRef, Set.empty)
         } yield action
     }
-
-    val x: Set[Int] = ???
-    x.
 
     override def execute(nodes: Vector[Node], tasks: Vector[(TaskName, File)]): IO[Unit] = for {
         tasksRef <- Ref.of[IO, Set[StrategyTaskInfo]](tasks.map(StrategyTaskInfo(_)).toSet)

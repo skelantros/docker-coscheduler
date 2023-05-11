@@ -30,8 +30,9 @@ trait Strategy extends DefaultLogger {
         nodes <- config.nodesUri.parMap(schedulingSystem.nodeInfo)
         _ <- nodes.parMap(schedulingSystem.initSession(sc))
         _ <- log.info("")(s"SessionID = ${sc.sessionId}. Starting strategy execution...")
-        action <- execute(nodes, tasks)
-    } yield action
+        actionWithTime <- execute(nodes, tasks).withTime
+        _ <- log.info("")(s"Strategy execution has been completed. Total time is ${actionWithTime._2}")
+    } yield actionWithTime._1
 }
 
 object Strategy {
