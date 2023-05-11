@@ -42,6 +42,7 @@ class MemoryBWAltStrategy(val schedulingSystem: SchedulingSystem with WithMmbwmo
         startedTask <- schedulingSystem.startTask(createdTask)
         benchmarkResult <- schedulingSystem.avgMmbwmon(node)(mmbwmonAttempts).delayBy(waitBeforeMmbwmon)
         pausedTask <- schedulingSystem.savePauseTask(startedTask)
+        _ <- log.debug(node.id)(s"${createdTask.title}: $benchmarkResult")
     } yield NodeTask(sTask, benchmarkResult, pausedTask)
 
     private class WorkerNode(node: Node, nodeTasks: TreeSet[NodeTask], sharedTasks: Ref[IO, SharedTasks], bwAndWaiting: SemaphoreResource[(Ref[IO, Double], Ref[IO, Boolean]), IO]) {
