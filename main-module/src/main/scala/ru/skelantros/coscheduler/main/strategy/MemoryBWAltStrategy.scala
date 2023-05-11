@@ -36,6 +36,7 @@ class MemoryBWAltStrategy(val schedulingSystem: SchedulingSystem with WithMmbwmo
             ).tupled
         }
         nodeTasks <- createdTasks.map((benchmarkTask(node) _).tupled).sequence
+        _ <- log.debug(node.id)(s"Measurements for all tasks are:\n${nodeTasks.sortBy(_.speed).mkString("\n")}")
     } yield (node, nodeTasks)
 
     private def benchmarkTask(node: Node)(createdTask: Task.Created, sTask: StrategyTask): IO[NodeTask] = for {
@@ -52,7 +53,7 @@ class MemoryBWAltStrategy(val schedulingSystem: SchedulingSystem with WithMmbwmo
             findTaskRes <- findTask(nodeTasks)
             action <- findTaskRes match {
                 case TaskFound(task) =>
-                    schedulingSystem.saveResumeTask(task.task) >> runTaskCallback(task).start >> go(nodeTasks - task, tasks + task.task)
+                    schedulingSystem.saveResumeTask(task.task) >> runTaskCallback(task) >> go(nodeTasks - task, tasks + task.task)
                 case NoMoreTasks => tasks.pure[IO]
                 case NotFound => go(nodeTasks, tasks).delayBy(delay)
             }
@@ -94,7 +95,7 @@ class MemoryBWAltStrategy(val schedulingSystem: SchedulingSystem with WithMmbwmo
                 } yield ()
             }
 
-            callbackStart >> schedulingSystem.waitForTask(task.task) >> callbackEnd
+            callbackStart >> (schedulingSystem.waitForTask(task.task) >> callbackEnd).start >> IO.unit
         }
     }
 
@@ -122,6 +123,6 @@ private case object NotFound extends FindTaskResult
 private case class NodeTask(sTask: StrategyTask, speed: Double, task: Task.Created)
 
 private object NodeTask {
-    private val ordering = Ordering.by[NodeTask, Double](_.speed).reverse
+    private val ordering = Ordering.by[NodeTask, Double](_.speed)
     def setFrom(coll: Iterable[NodeTask]): TreeSet[NodeTask] = TreeSet.from(coll)(ordering)
 }
