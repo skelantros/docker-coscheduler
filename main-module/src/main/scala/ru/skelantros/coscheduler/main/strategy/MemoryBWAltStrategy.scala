@@ -6,14 +6,14 @@ import ru.skelantros.coscheduler.main.Configuration
 import ru.skelantros.coscheduler.main.implicits._
 import ru.skelantros.coscheduler.main.strategy.MemoryBWAltStrategy._
 import ru.skelantros.coscheduler.main.strategy.Strategy._
-import ru.skelantros.coscheduler.main.system.{SchedulingSystem, WithRamBenchmark}
+import ru.skelantros.coscheduler.main.system.{SchedulingSystem, WithMmbwmon}
 import ru.skelantros.coscheduler.main.utils.SemaphoreResource
 import ru.skelantros.coscheduler.model.{CpuSet, Node, Task}
 
 import scala.collection.immutable.TreeSet
 import scala.concurrent.duration.DurationInt
 
-class MemoryBWAltStrategy(val schedulingSystem: SchedulingSystem with WithRamBenchmark, val config: Configuration) extends Strategy {
+class MemoryBWAltStrategy(val schedulingSystem: SchedulingSystem with WithMmbwmon, val config: Configuration) extends Strategy {
     private val waitBeforeMmbwmon = config.mmbwmon.flatMap(_.waitBeforeMeasurement).getOrElse(250.millis)
     private val mmbwmonAttempts = config.mmbwmon.flatMap(_.attempts).getOrElse(5)
     private val threshold = config.mmbwmon.flatMap(_.threshold).getOrElse(0.9)
@@ -40,7 +40,7 @@ class MemoryBWAltStrategy(val schedulingSystem: SchedulingSystem with WithRamBen
 
     private def benchmarkTask(node: Node)(createdTask: Task.Created, sTask: StrategyTask): IO[NodeTask] = for {
         startedTask <- schedulingSystem.startTask(createdTask)
-        benchmarkResult <- schedulingSystem.avgRamBenchmark(node)(mmbwmonAttempts).delayBy(waitBeforeMmbwmon)
+        benchmarkResult <- schedulingSystem.avgMmbwmon(node)(mmbwmonAttempts).delayBy(waitBeforeMmbwmon)
         pausedTask <- schedulingSystem.savePauseTask(startedTask)
     } yield NodeTask(sTask, benchmarkResult, pausedTask)
 
@@ -107,7 +107,7 @@ class MemoryBWAltStrategy(val schedulingSystem: SchedulingSystem with WithRamBen
 }
 
 object MemoryBWAltStrategy {
-    def apply(schedulingSystem: SchedulingSystem with WithRamBenchmark, config: Configuration): MemoryBWAltStrategy =
+    def apply(schedulingSystem: SchedulingSystem with WithMmbwmon, config: Configuration): MemoryBWAltStrategy =
         new MemoryBWAltStrategy(schedulingSystem, config)
 
     private type SharedTasks = Set[StrategyTask]

@@ -1,7 +1,6 @@
 package ru.skelantros.coscheduler.main.system
 import cats.effect.IO
 import ru.skelantros.coscheduler.model.{CpuSet, Node, SessionContext, Task}
-import ru.skelantros.coscheduler.main.system.SchedulingSystem.TaskLogs
 import ru.skelantros.coscheduler.image.ImageArchive
 import ru.skelantros.coscheduler.logging.Logger
 import ru.skelantros.coscheduler.main.Configuration
@@ -16,7 +15,7 @@ import scala.concurrent.duration.FiniteDuration
 
 class HttpSchedulingSystem(val config: Configuration)
     extends SchedulingSystem
-    with WithRamBenchmark
+    with WithMmbwmon
     with WithTaskSpeedEstimate {
 
     private val client = Http4sBackend.usingDefaultEmberClientBuilder[IO]()
@@ -73,7 +72,7 @@ class HttpSchedulingSystem(val config: Configuration)
         makeRequest(task.node.uri, WorkerEndpoints.isRunning)(task)
 
     // 1 - (measured - 0.33) / (1 - 0.33) = 1 + 0.33/0.67 - measured/0.67 = 1 / 0.67 - measured / 0.67 ~=~ 3/2 - 3/2 * measured = 3/2 (1 - measured)
-    override def ramBenchmark(node: Node): IO[Double] = for {
+    override def mmbwmon(node: Node): IO[Double] = for {
         measured <- makeRequest(node.uri, MmbwmonEndpoints.measure)(())
     } yield 3 * (1 - measured) / 2
 

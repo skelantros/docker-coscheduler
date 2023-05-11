@@ -5,7 +5,7 @@ import cats.implicits.catsSyntaxParallelSequence1
 import ru.skelantros.coscheduler.main.Configuration
 import ru.skelantros.coscheduler.main.strategy.MemoryBWStrategy.{StrategyTaskInfo, atomicRefAction}
 import ru.skelantros.coscheduler.main.strategy.Strategy.{StrategyTask, TaskName}
-import ru.skelantros.coscheduler.main.system.{SchedulingSystem, WithRamBenchmark}
+import ru.skelantros.coscheduler.main.system.{SchedulingSystem, WithMmbwmon}
 import ru.skelantros.coscheduler.model.{CpuSet, Node, Task}
 
 import java.io.File
@@ -57,7 +57,7 @@ import scala.concurrent.duration.DurationInt
  * Основной поток ожидает, пока все задачи будут запущены (т.е. когда все планировщики вернут списки запущенных
  * задач), и затем ожидает выполнения всех задач. Когда все задачи закончат выполнение, программа завершает выполнение.
  */
-class MemoryBWStrategy(val schedulingSystem: SchedulingSystem with WithRamBenchmark,
+class MemoryBWStrategy(val schedulingSystem: SchedulingSystem with WithMmbwmon,
                        val config: Configuration) extends Strategy { self =>
     private val bmAttempts = config.mmbwmon.flatMap(_.attempts).getOrElse(5)
     private val bwRetryDelay = config.mmbwmon.flatMap(_.retryDelay).getOrElse(1.seconds)
@@ -100,7 +100,7 @@ class MemoryBWStrategy(val schedulingSystem: SchedulingSystem with WithRamBenchm
             builtTask <- schedulingSystem.buildTaskFromTuple(node)(taskInfo.task)
             createdTask <- schedulingSystem.createTask(builtTask, Some(CpuSet(1, node.cores - 1)))
             startedTask <- schedulingSystem.startTask(createdTask)
-            benchmarkResult <- schedulingSystem.avgRamBenchmark(node)(bmAttempts)
+            benchmarkResult <- schedulingSystem.avgMmbwmon(node)(bmAttempts)
             action <- atomicRefAction(tasksCountRef) { tasksCount =>
                 if (tasksCount > 0 && benchmarkResult > bwThreshold)
                     log(s"task $taskInfo will be stopped and migrated") >> migrateTask(taskInfo, startedTask) >> IO.pure(None)
@@ -160,6 +160,6 @@ object MemoryBWStrategy {
             (refValue, f(refValue))
         }.flatten
 
-    def apply(schedulingSystem: SchedulingSystem with WithRamBenchmark, config: Configuration): MemoryBWStrategy =
+    def apply(schedulingSystem: SchedulingSystem with WithMmbwmon, config: Configuration): MemoryBWStrategy =
         new MemoryBWStrategy(schedulingSystem, config)
 }
