@@ -14,7 +14,7 @@ object CpuSet {
         case regex(start, end) =>
             (start.toIntOption zip end.toIntOption).flatMap { case (start, end) =>
                 val count = end - start + 1
-                if(count > 0 && start > 0) Some(CpuSet(start, count))
+                if(count > 0 && start >= 0) Some(CpuSet(start, count))
                 else None
             }
         case _ => None
