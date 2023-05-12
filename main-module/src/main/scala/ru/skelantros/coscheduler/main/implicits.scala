@@ -23,4 +23,8 @@ object implicits {
             end <- Clock[F].monotonic
         } yield (result, end - start)
     }
+
+    implicit class SumByOps[A](xs: Iterable[A]) {
+        def sumBy[B](f: A => B)(implicit num: Numeric[B]): B = xs.foldLeft(num.zero)((acc, x) => num.plus(acc, f(x)))
+    }
 }
