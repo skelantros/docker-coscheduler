@@ -43,8 +43,10 @@ class MemoryBWAltStrategy(val schedulingSystem: SchedulingSystem with WithMmbwmo
         startedTask <- schedulingSystem.startTask(createdTask)
         benchmarkResult <- schedulingSystem.avgMmbwmon(node)(mmbwmonAttempts).delayBy(waitBeforeMmbwmon)
         pausedTask <- schedulingSystem.savePauseTask(startedTask)
+        // после бенчмарка выдаем задаче в пользование все ядра. хуже не станет
+        updatedCpusTask <- schedulingSystem.updateCpus(pausedTask, CpuSet(0, node.cores))
         _ <- log.debug(node.id)(s"${createdTask.title}: $benchmarkResult")
-    } yield NodeTask(sTask, benchmarkResult, pausedTask)
+    } yield NodeTask(sTask, benchmarkResult, updatedCpusTask)
 
     private class WorkerNode(node: Node, nodeTasks: List[NodeTask], sharedTasks: Ref[IO, SharedTasks], bwAndWaiting: SemaphoreResource[(Ref[IO, Double], Ref[IO, Boolean]), IO]) {
         def execute: IO[Set[Task.Created]] = go(nodeTasks, Set.empty)

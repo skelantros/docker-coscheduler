@@ -26,6 +26,6 @@ object CpuSet {
     implicit val decoder: Decoder[CpuSet] =
         Decoder.decodeString.emap(CpuSet(_).toRight("wrong value"))
 
-    implicit val queryCodec: tapir.Codec[List[String], Option[CpuSet], TextPlain] =
+    implicit val optQueryCodec: tapir.Codec[List[String], Option[CpuSet], TextPlain] =
         tapir.Codec.list[String, String, TextPlain].map(_.headOption.flatMap(CpuSet(_)))(_.map(_.asString).toList)
 }

@@ -5,7 +5,7 @@ import cats.implicits._
 import com.spotify.docker.client.messages.{ContainerConfig, HostConfig}
 import doobie.util.transactor.Transactor
 import ru.skelantros.coscheduler.ledger.{Ledger, LedgerEvent, LedgerNote, LedgerTransactor}
-import ru.skelantros.coscheduler.model.{SessionContext, Task}
+import ru.skelantros.coscheduler.model.{CpuSet, SessionContext, Task}
 import ru.skelantros.coscheduler.worker.WorkerConfiguration
 import ru.skelantros.coscheduler.worker.docker.DockerClientResource
 import ru.skelantros.coscheduler.worker.endpoints.{AppEndpoint, ServerResponse, WorkerEndpoints}
@@ -185,6 +185,17 @@ class WorkerServerLogic(configuration: WorkerConfiguration, sessionCtxRef: Ref[I
         } yield result
     }
 
+    final val updateCpus = customTaskLogic(WorkerEndpoints.updateCpus)(_._1) { case (task, cpusOpt) =>
+        val action = cpusOpt match {
+            case Some(cpuSet) =>
+                val hostConfig = HostConfig.builder().cpusetCpus(cpuSet.asString).build()
+                DockerClientResource(_.updateContainer(task.containerId, hostConfig)) >> task.copy(cpus = cpusOpt).pure[IO]
+            case None => task.pure[IO]
+        }
+
+        action.map(ServerResponse(_))
+    }
+
     final override val routes: List[ServerEndpoint[Fs2Streams[IO], IO]] = List(
         build,
         create,
@@ -195,6 +206,7 @@ class WorkerServerLogic(configuration: WorkerConfiguration, sessionCtxRef: Ref[I
         isRunning,
         nodeInfo,
         taskSpeed,
-        initSession
+        initSession,
+        updateCpus
     )
 }
