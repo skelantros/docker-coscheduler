@@ -25,11 +25,11 @@ class FCStrategy(val schedulingSystem: SchedulingSystem with WithTaskSpeedEstima
 
     private case class NodeWorker(node: Node) {
         private def measureCombinationSpeed(combination: Combination): IO[CombinationWithSpeed] = for {
-            _ <- log.info(node.id)(s"started measuring combination $combination")
+            _ <- log.debug(node.id)(s"started measuring combination $combination")
             runTasks <- combination.genParMap(_.toList)(schedulingSystem.saveResumeTask)
             _ <- IO.unit.delayBy(waitBeforeMeasurementTime) // возможно не нужно
             taskSpeeds <- runTasks.parMap(schedulingSystem.speedOf(measurementTime, measurementAttempts))
-            _ <- log.info(node.id)(s"taskSpeeds = $taskSpeeds")
+            _ <- log.debug(node.id)(s"taskSpeeds = $taskSpeeds")
             _ <- runTasks.parMap(schedulingSystem.savePauseTask)
         } yield CombinationWithSpeed(combination, taskSpeeds.sum)
 
@@ -41,7 +41,7 @@ class FCStrategy(val schedulingSystem: SchedulingSystem with WithTaskSpeedEstima
         }
 
         private def runUntilTaskCompletion(combination: Combination): IO[Unit] = for {
-            _ <- log.info(node.id)(s"Running combination $combination")
+            _ <- log.debug(node.id)(s"Running combination $combination")
             runTasks <- combination.genParMap(_.toList)(schedulingSystem.saveResumeTask)
             callbacks = runTasks.map(schedulingSystem.waitForTask).map(_ >> IO.unit)
             action <- raceCallbacks(callbacks)
@@ -59,7 +59,7 @@ class FCStrategy(val schedulingSystem: SchedulingSystem with WithTaskSpeedEstima
         } yield action
 
         private def go(tasks: Set[Task.Created], combinations: TreeSet[CombinationWithSpeed]): IO[Unit] = for {
-            _ <- log.info(node.id)(s"Current combinations are:\n${combinations.mkString("\n")}")
+            _ <- log.debug(node.id)(s"Current combinations are:\n${combinations.mkString("\n")}")
             combinationOpt <- IO.pure(combinations.maxOption)
             action <- combinationOpt.fold(IO.unit)(c => goContinue(tasks, c.combination, combinations))
         } yield action

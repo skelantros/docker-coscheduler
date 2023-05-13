@@ -44,4 +44,6 @@ trait SchedulingSystem {
     def isRunning(task: Task.Created): IO[Boolean]
 
     def initSession(sessionCtx: SessionContext)(node: Node): IO[Unit]
+
+    def updateCpus(task: Task.Created, cpuSet: CpuSet): IO[Task.Created]
 }

@@ -71,6 +71,10 @@ class HttpSchedulingSystem(val config: Configuration)
     override def isRunning(task: Task.Created): IO[Boolean] =
         makeRequest(task.node.uri, WorkerEndpoints.isRunning)(task)
 
+
+    override def updateCpus(task: Task.Created, cpuSet: CpuSet): IO[Task.Created] =
+        makeRequest(task.node.uri, WorkerEndpoints.updateCpus)(task, Some(cpuSet))
+
     // 1 - (measured - 0.33) / (1 - 0.33) = 1 + 0.33/0.67 - measured/0.67 = 1 / 0.67 - measured / 0.67 ~=~ 3/2 - 3/2 * measured = 3/2 (1 - measured)
     override def mmbwmon(node: Node): IO[Double] = for {
         measured <- makeRequest(node.uri, MmbwmonEndpoints.measure)(())

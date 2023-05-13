@@ -14,7 +14,7 @@ object CpuSet {
         case regex(start, end) =>
             (start.toIntOption zip end.toIntOption).flatMap { case (start, end) =>
                 val count = end - start + 1
-                if(count > 0 && start > 0) Some(CpuSet(start, count))
+                if(count > 0 && start >= 0) Some(CpuSet(start, count))
                 else None
             }
         case _ => None
@@ -26,6 +26,6 @@ object CpuSet {
     implicit val decoder: Decoder[CpuSet] =
         Decoder.decodeString.emap(CpuSet(_).toRight("wrong value"))
 
-    implicit val queryCodec: tapir.Codec[List[String], Option[CpuSet], TextPlain] =
+    implicit val optQueryCodec: tapir.Codec[List[String], Option[CpuSet], TextPlain] =
         tapir.Codec.list[String, String, TextPlain].map(_.headOption.flatMap(CpuSet(_)))(_.map(_.asString).toList)
 }

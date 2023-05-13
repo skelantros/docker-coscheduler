@@ -53,4 +53,7 @@ object WorkerEndpoints {
         .in(query[Int]("attempts").default(1))
         .in(query[FiniteDuration]("durationMs"))
         .out(jsonBody[Double])
+
+    // todo in(CpuSet)
+    final val updateCpus = taskEndpoint.in("update-cpus").in(query[Option[CpuSet]]("cpus"))
 }
