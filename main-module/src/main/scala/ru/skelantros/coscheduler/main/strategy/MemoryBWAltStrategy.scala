@@ -51,24 +51,16 @@ class MemoryBWAltStrategy(val schedulingSystem: SchedulingSystem with WithMmbwmo
     private class WorkerNode(node: Node, nodeTasks: List[NodeTask], sharedTasks: Ref[IO, SharedTasks], bwAndWaiting: SemaphoreResource[(Ref[IO, Double], Ref[IO, Boolean]), IO]) {
         def execute: IO[Set[Task.Created]] = go(nodeTasks, Set.empty)
 
-//        private def go(nodeTasks: TreeSet[NodeTask], tasks: Set[Task.Created]): IO[Set[Task.Created]] = for {
-//            findTaskRes <- findTask(nodeTasks)
-//            action <- findTaskRes match {
-//                case TaskFound(task) =>
-//                    schedulingSystem.saveResumeTask(task.task) >> runTaskCallback(task) >> go(nodeTasks - task, tasks + task.task)
-//                case NoMoreTasks => tasks.pure[IO]
-//                case NotFound => go(nodeTasks, tasks).delayBy(delay)
-//            }
-//        } yield action
-
         private def go(nodeTasks: List[NodeTask], tasks: Set[Task.Created]): IO[Set[Task.Created]] = for {
             findTasksRes <- findTasks(nodeTasks)
             action <- findTasksRes match {
-                case TasksFound(foundTasks, updatedNodeTasks) =>
+                case x @ TasksFound(foundTasks, updatedNodeTasks) =>
+                    log.debug(node.id)(x.toString) >>
                     foundTasks.parMap(t => schedulingSystem.saveResumeTask(t.task)) >>
                     runTasksCallback(foundTasks) >>
                     go(updatedNodeTasks, foundTasks.foldLeft(tasks)(_ + _.task))
-                case NoMoreTasks(foundTasks) =>
+                case x @ NoMoreTasks(foundTasks) =>
+                    log.debug(node.id)(x.toString) >>
                     foundTasks.parMap(t => schedulingSystem.saveResumeTask(t.task)) >>
                     runTasksCallback(foundTasks) >>
                     foundTasks.foldLeft(tasks)(_ + _.task).pure[IO]
@@ -131,45 +123,6 @@ class MemoryBWAltStrategy(val schedulingSystem: SchedulingSystem with WithMmbwmo
 
             callbackStart >> callbacksEnd >> IO.unit
         }
-
-//        private def findTask(nodeTasks: TreeSet[NodeTask]): IO[FindTaskResult] = bwAndWaiting.getAndComputeF { case (bwRef, waitingRef) =>
-//            for {
-//                bw <- bwRef.get
-//                waiting <- waitingRef.get
-//                result <-
-//                    if (waiting) NotFound.pure[IO]
-//                    else sharedTasks.modify { sts =>
-//                        if (sts.isEmpty) (sts, IO.pure(NoMoreTasks))
-//                        else nodeTasks.find(nt => sts(nt.sTask)) match {
-//                            case Some(nodeTask) if bw == 0 || bw + nodeTask.speed <= threshold =>
-//                                (sts - nodeTask.sTask, IO.pure(TaskFound(nodeTask)))
-//                            case _ =>
-//                                (sts, IO.pure(NotFound) <* waitingRef.set(true))
-//                        }
-//                    }.flatten
-//            } yield result
-//        }
-
-//        private def runTaskCallback(task: NodeTask): IO[Unit] = {
-//            val callbackStart = bwAndWaiting.getAndComputeF { case (bwRef, _) =>
-//                for {
-//                    _ <- bwRef.update(_ + task.speed)
-//                    totalBw <- bwRef.get
-//                    _ <- log.debug(node.id)(s"Task $task has been started. totalBw = $totalBw")
-//                } yield ()
-//            }
-//
-//            val callbackEnd = bwAndWaiting.getAndComputeF { case (bwRef, waitingRef) =>
-//                for {
-//                    _ <- bwRef.update(_ - task.speed)
-//                    _ <- waitingRef.set(false)
-//                    totalBw <- bwRef.get
-//                    _ <- log.debug(node.id)(s"Task $task has been completed. totalBw = $totalBw")
-//                } yield ()
-//            }
-//
-//            callbackStart >> (schedulingSystem.waitForTask(task.task) >> callbackEnd).start >> IO.unit
-//        }
     }
 
     private object WorkerNode {
