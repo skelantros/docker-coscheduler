@@ -189,7 +189,7 @@ class WorkerServerLogic(configuration: WorkerConfiguration, sessionCtxRef: Ref[I
         val action = cpusOpt match {
             case Some(cpuSet) =>
                 val hostConfig = HostConfig.builder().cpusetCpus(cpuSet.asString).build()
-                DockerClientResource(_.updateContainer(task.containerId, hostConfig)) >> task.copy(cpus = cpusOpt).pure[IO]
+                DockerClientResource(_.updateContainer(task.containerId, hostConfig)) >> task.updatedCpus(cpusOpt).pure[IO]
             case None => task.pure[IO]
         }
 

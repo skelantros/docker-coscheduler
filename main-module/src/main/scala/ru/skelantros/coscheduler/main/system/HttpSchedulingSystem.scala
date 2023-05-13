@@ -39,22 +39,22 @@ class HttpSchedulingSystem(val config: Configuration)
         makeRequest(uri, WorkerEndpoints.nodeInfo)(()).map(_.copy(uri = uri))
 
     override def buildTask(node: Node)(image: ImageArchive, taskName: String): IO[Task.Built] =
-        makeRequest(node.uri, WorkerEndpoints.build)(image, taskName).map(_.copy(node = node))
+        makeRequest(node.uri, WorkerEndpoints.build)(image, taskName).map(_.updatedNode(node = node))
 
     override def createTask(task: Task.Built, cpuset: Option[CpuSet] = None): IO[Task.Created] =
-        makeRequest(task.node.uri, WorkerEndpoints.create)(task, cpuset).map(_.copy(node = task.node))
+        makeRequest(task.node.uri, WorkerEndpoints.create)(task, cpuset).map(_.updatedNode(task.node))
 
     override def startTask(task: Task.Created): IO[Task.Created] =
-        makeRequest(task.node.uri, WorkerEndpoints.start)(task).map(_.copy(node = task.node))
+        makeRequest(task.node.uri, WorkerEndpoints.start)(task).map(_.updatedNode(task.node))
 
     override def pauseTask(task: Task.Created): IO[Task.Created] =
-        makeRequest(task.node.uri, WorkerEndpoints.pause)(task).map(_.copy(node = task.node))
+        makeRequest(task.node.uri, WorkerEndpoints.pause)(task).map(_.updatedNode(task.node))
 
     override def resumeTask(task: Task.Created): IO[Task.Created] =
-        makeRequest(task.node.uri, WorkerEndpoints.resume)(task).map(_.copy(node = task.node))
+        makeRequest(task.node.uri, WorkerEndpoints.resume)(task).map(_.updatedNode(task.node))
 
     override def stopTask(task: Task.Created): IO[Task.Created] =
-        makeRequest(task.node.uri, WorkerEndpoints.stop)(task).map(_.copy(node = task.node))
+        makeRequest(task.node.uri, WorkerEndpoints.stop)(task).map(_.updatedNode(task.node))
 
     override def waitForTask(task: Task.Created): IO[Boolean] = {
         def go(task: Task.Created): IO[Boolean] =
