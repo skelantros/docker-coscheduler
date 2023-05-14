@@ -36,6 +36,12 @@ trait SchedulingSystem {
                 IO.println(s"saveResumeTask($task) recovered from error $err") >> IO.pure(task)
         }
 
+    def runTaskFromTuple(node: Node)(strategyTask: StrategyTask, cpuSet: Option[CpuSet] = None): IO[Task.Created] = for {
+        built <- buildTaskFromTuple(node)(strategyTask)
+        created <- createTask(built, cpuSet)
+        started <- startTask(created)
+    } yield started
+
     def stopTask(task: Task.Created): IO[Task.Created]
 
     // TODO Unit result type may be more suitable here
