@@ -40,10 +40,13 @@ class FCSHybridStrategy(val schedulingSystem: SchedulingSystem with WithTaskSpee
         val measurer = new SpeedMeasurer(log.debug(node.id)(_), schedulingSystem, measurementTime, measurementAttempts, waitBeforeMeasurementTime)
         val sTasks = tasks.map(_._1).toSet
 
-        val cwsIo = for {
+        val createdTasks = for {
             createdTasks <- tasks.map(_._2).parMap(schedulingSystem.createTask(_))
-            result <- measurer.measureCombinationSpeeds(createdTasks)
-        } yield result
+            startedTasks <- createdTasks.parMap(schedulingSystem.startTask)
+            pausedTasks <- startedTasks.parMap(schedulingSystem.savePauseTask)
+        } yield pausedTasks
+
+        val cwsIo = createdTasks.flatMap(measurer.measureCombinationSpeeds)
 
         for {
             cws <- cwsIo
@@ -72,15 +75,19 @@ class FCSHybridStrategy(val schedulingSystem: SchedulingSystem with WithTaskSpee
             action <- combinationOpt.fold(IO.unit)(fcsStageRunCombination(_) >> fcsStage)
         } yield action
 
+
+        private def logCwsSet(sTasks: Set[StrategyTask], cwsSet: TreeSet[CombinationWithSpeed]): IO[Unit] =
+            log.debug(node.id)(s"Non-run tasks are ${sTasks.map(_._1).mkString("\n")}. Current combinations are:${cwsSet.mkString("\n")}")
+
         private val fcsStageCombination: IO[Option[Combination]] = tasksInfo.modify { case ti @ (sTasks, cwsSet) =>
             cwsSet.maxOption match {
                 case Some(cws) =>
                     val taskNames = cws.combination.map(_.title)
                     val updatedSTasks = sTasks.filter(sTask => !taskNames(sTask._1))
-                    ((updatedSTasks, cwsSet - cws), Some(cws.combination))
-                case None => (ti, None)
+                    ((updatedSTasks, cwsSet - cws), logCwsSet(sTasks, cwsSet) >> Some(cws.combination).pure[IO])
+                case None => (ti, logCwsSet(sTasks, cwsSet) >> None.pure[IO])
             }
-        }
+        }.flatten
 
         private def fcsStageRunCombination(combination: Combination): IO[Unit] = for {
             _ <- log.debug(node.id)(s"Starting combination ${combination.map(_.title).mkString(",")}")

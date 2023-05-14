@@ -15,11 +15,10 @@ class SpeedMeasurer(log: String => IO[Unit],
                     measurementAttempts: Int,
                     waitBeforeMeasurementTime: FiniteDuration) {
     def measureCombinationSpeed(combination: Combination): IO[CombinationWithSpeed] = for {
-        _ <- log(s"started measuring combination $combination")
         runTasks <- combination.genParMap(_.toList)(schedulingSystem.saveResumeTask)
         _ <- IO.unit.delayBy(waitBeforeMeasurementTime) // возможно не нужно
         taskSpeeds <- runTasks.parMap(schedulingSystem.speedOf(measurementTime, measurementAttempts))
-        _ <- log(s"taskSpeeds = $taskSpeeds")
+        _ <- log(s"${combination.map(_.title).mkString(",")}: taskSpeeds = $taskSpeeds")
         _ <- runTasks.parMap(schedulingSystem.savePauseTask)
     } yield CombinationWithSpeed(combination, taskSpeeds.sum)
 
