@@ -39,21 +39,34 @@ object TasksTest extends IOApp with WithConfigLoad with DefaultLogger {
                 case EndpointException(t) => log.debug(task.title)(s"Measurement completed with: $t") >> IO.pure(measures)
             }
 
-        def singleTaskResults(task: Task.Created): IO[(Results, Results, FiniteDuration)] = for {
-            speedResultsT <- tasksTestConfig.speedParams.fold(IO.pure(List.empty[Double]))(params => testSpeed(params, task)(List.empty)).withTime
+        def singleTaskResults(node: Node)(task: StrategyTask): IO[(List[Double], List[Double], FiniteDuration)] = for {
+            speedTask <- schedulingSystem.runTaskFromTuple(node)(task)
+            _ <- log.info(speedTask.title)(s"${speedTask.title}: speed container ${speedTask.containerId}")
+            speedResultsT <- tasksTestConfig.speedParams.fold(IO.pure(List.empty[Double]))(params => testSpeed(params, speedTask)(List.empty).delayBy(params.delay)).withTime
             (speedResults, time) = speedResultsT
-            mmbwmonResults <- tasksTestConfig.mmbwmon.fold(IO.pure(List.empty[Double]))(params => testMmbwmon(task, task.node, params)(List.empty))
-            asc = (avgSdCount(mmbwmonResults), avgSdCount(speedResults), time)
+            _ <- log.info(speedTask.title)(s"${speedTask.title}: speed test completed. time = $time. results = ${avgSdCount(speedResults)}")
+            mmbwmonTask <- schedulingSystem.runTaskFromTuple(node)(task, CpuSet(1, node.cores - 1).some)
+            _ <- log.info(speedTask.title)(s"${mmbwmonTask.title}: mmbwmon container ${mmbwmonTask.containerId}")
+            mmbwmonResults <- tasksTestConfig.mmbwmon.fold(IO.pure(List.empty[Double]))(params => testMmbwmon(mmbwmonTask, mmbwmonTask.node, params)(List.empty))
+            asc = (mmbwmonResults, speedResults, time)
         } yield asc
 
         def singleTask(node: Node)(strategyTask: StrategyTask): IO[Unit] = for {
             _ <- log.debug(strategyTask._1)(s"Starting task ${strategyTask._1}")
-            runTask <- schedulingSystem.runTaskFromTuple(node)(strategyTask, CpuSet(1, node.cores - 1).some)
-            results <- singleTaskResults(runTask)
-            _ <- log.info(runTask.title)(s"${runTask.title}\t${results._1}\t${results._2}\t${results._3}")
+//            runTask <- schedulingSystem.runTaskFromTuple(node)(strategyTask, CpuSet(1, node.cores - 1).some)
+            results <- singleTaskResults(node)(strategyTask)
+            mmbwmonList = results._1
+            speedList = results._2
+            time = results._3
+            mmbwmonAsc = avgSdCount(mmbwmonList)
+            speedAsc = avgSdCount(speedList)
+            _ <- log.info(strategyTask._1)(s"${strategyTask._1}\t$mmbwmonAsc\t$speedAsc\t$time")
+//            _ <- log.info(strategyTask._1)(s"${strategyTask._1} mmbwmon: ${mmbwmonList.mkString(",")}")
+//            _ <- log.info(strategyTask._1)(s"${strategyTask._1} speed: ${speedList.mkString(",")}")
         } yield ()
 
         for {
+            _ <- log.info("")(tasksTestConfig.toString)
             nodeInfo <- schedulingSystem.nodeInfo(tasksTestConfig.nodeUri)
             _ <- log.info("")(s"task_title\tmmbwmon\ttask_speed\ttime")
             _ <- tasksTestConfig.tasks.map(singleTask(nodeInfo)).sequence
@@ -61,11 +74,11 @@ object TasksTest extends IOApp with WithConfigLoad with DefaultLogger {
     }
 
 
-    override def loggerConfig: Logger.Config = Logger.Config(info = true, debug = true)
+    override def loggerConfig: Logger.Config = Logger.Config(info = true, debug = false)
 
     private def avg(numbers: Iterable[Double]): Double = numbers.sum / numbers.size
 
-    type Results = (Double, Double, Int)
+    type Results = (Double, Double, Double, Int)
 
 
 
@@ -75,6 +88,7 @@ object TasksTest extends IOApp with WithConfigLoad with DefaultLogger {
             val avgRes = avg(numbers)
             val disp = numbers.map(x => (x - avgRes) * (x - avgRes)).sum / count
             val sd = math.sqrt(disp)
-            (avgRes, sd, count)
-        } else (0, 0, 0)
+            val sdPercent = sd / avgRes
+            (avgRes, sd, sdPercent, count)
+        } else (0, 0, 0, 0)
 }
