@@ -2,14 +2,14 @@ package ru.skelantros.coscheduler.main.system
 import cats.effect.IO
 import cats.implicits._
 import ru.skelantros.coscheduler.image.ImageArchive
-import ru.skelantros.coscheduler.logging.{DefaultLogger, Logger}
+import ru.skelantros.coscheduler.logging.Logger
 import ru.skelantros.coscheduler.main.system.WithTaskSpeedEstimate.TaskSpeed
 import ru.skelantros.coscheduler.model.{CpuSet, Node, Task}
 import sttp.model.Uri
 
 import scala.concurrent.duration.FiniteDuration
 
-trait LoggingSchedulingSystem extends SchedulingSystem with WithMmbwmon with WithTaskSpeedEstimate with DefaultLogger {
+trait LoggingSchedulingSystem extends SchedulingSystem with WithMmbwmon with WithTaskSpeedEstimate {
 
     abstract override def nodeInfo(uri: Uri): IO[Node] =
         super.nodeInfo(uri) <* log.debug("")(s"nodeInfo($uri)")
@@ -32,7 +32,7 @@ trait LoggingSchedulingSystem extends SchedulingSystem with WithMmbwmon with Wit
     abstract override def stopTask(task: Task.Created): IO[Task.Created] =
         super.stopTask(task) <* log.debug("")(s"stopTask($task)")
 
-    abstract override def waitForTask(task: Task.Created): IO[Boolean] =
+    abstract override def waitForTask(task: Task.Created): IO[Long] =
         super.waitForTask(task) <* log.debug("")(s"waitForTask($task)")
 
     abstract override def mmbwmon(node: Node): IO[Double] = for {

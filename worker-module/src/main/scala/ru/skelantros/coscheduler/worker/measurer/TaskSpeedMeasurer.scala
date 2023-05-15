@@ -10,6 +10,6 @@ import scala.concurrent.duration.FiniteDuration
 object TaskSpeedMeasurer {
     def apply(duration: FiniteDuration)(task: Task.Created): IO[Option[Double]] = for {
         measures <- (IPCMeasurer(duration)(task.cpus), CputimeMeasurer(duration)(task.containerId)).parTupled
-        _ <- IO.println(s"TaskSeedMeasurer($duration)($task) = $measures")
+//        _ <- IO.println(s"TaskSeedMeasurer($duration)($task) = $measures")
     } yield measures.mapN(_ * _)
 }

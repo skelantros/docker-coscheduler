@@ -2,7 +2,7 @@ package ru.skelantros.coscheduler.main.system
 import cats.effect.IO
 import ru.skelantros.coscheduler.model.{CpuSet, Node, SessionContext, Task}
 import ru.skelantros.coscheduler.image.ImageArchive
-import ru.skelantros.coscheduler.logging.Logger
+import ru.skelantros.coscheduler.logging.{DefaultLogger, Logger}
 import ru.skelantros.coscheduler.main.Configuration
 import ru.skelantros.coscheduler.main.system.WithTaskSpeedEstimate.TaskSpeed
 import ru.skelantros.coscheduler.worker.endpoints.{AppEndpoint, MmbwmonEndpoints, WorkerEndpoints}
@@ -16,10 +16,13 @@ import scala.concurrent.duration.FiniteDuration
 class HttpSchedulingSystem(val config: Configuration)
     extends SchedulingSystem
     with WithMmbwmon
-    with WithTaskSpeedEstimate {
+    with WithTaskSpeedEstimate
+    with DefaultLogger {
 
     private val client = Http4sBackend.usingDefaultEmberClientBuilder[IO]()
     private val inter = SttpClientInterpreter()
+
+    override def loggerConfig: Logger.Config = config.schedulingSystemLogging
 
     private def makeRequest[I, O](uri: Uri, endpoint: AppEndpoint[I, O])(input: I): IO[O] = for {
         route <- IO(inter.toRequest(endpoint, Some(uri)))
@@ -56,16 +59,21 @@ class HttpSchedulingSystem(val config: Configuration)
     override def stopTask(task: Task.Created): IO[Task.Created] =
         makeRequest(task.node.uri, WorkerEndpoints.stop)(task).map(_.updatedNode(task.node))
 
-    override def waitForTask(task: Task.Created): IO[Boolean] = {
-        def go(task: Task.Created): IO[Boolean] =
+    override def waitForTask(task: Task.Created): IO[Long] = {
+        def go(task: Task.Created): IO[Long] =
             for {
                 isRunning <- makeRequest(task.node.uri, WorkerEndpoints.isRunning)(task)
                 res <-
                     if(isRunning) go(task).delayBy(config.waitForTaskDelay)
-                    else IO.pure(true)
+                    else makeRequest(task.node.uri, WorkerEndpoints.exitCode)(task)
             } yield res
 
-        go(task)
+        for {
+            exitCode <- go(task)
+            _ <-
+                if(exitCode != 0) log.error("")(s"Task ${task.title} (${task.containerId}) has been completed with code $exitCode.")
+                else IO.unit
+        } yield exitCode
     }
 
     override def isRunning(task: Task.Created): IO[Boolean] =
@@ -89,7 +97,5 @@ class HttpSchedulingSystem(val config: Configuration)
 
 object HttpSchedulingSystem {
     def withLogging(config: Configuration): HttpSchedulingSystem with LoggingSchedulingSystem =
-        new HttpSchedulingSystem(config) with LoggingSchedulingSystem {
-            override def loggerConfig: Logger.Config = config.schedulingSystemLogging
-        }
+        new HttpSchedulingSystem(config) with LoggingSchedulingSystem
 }

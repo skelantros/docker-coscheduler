@@ -163,6 +163,10 @@ class WorkerServerLogic(configuration: WorkerConfiguration, sessionCtxRef: Ref[I
         } yield ServerResponse(containerState.running)
     }
 
+    final val exitCode = taskLogic(WorkerEndpoints.exitCode) { task =>
+        containerState(task).map(_.exitCode).map(ServerResponse(_))
+    }
+
     final val nodeInfo = serverLogic(WorkerEndpoints.nodeInfo) { _ => ServerResponse(configuration.node).pure[IO] }
 
     private val sumOpts = (x: Option[Double], y: Option[Double]) => (x, y).mapN(_ + _)
@@ -204,6 +208,7 @@ class WorkerServerLogic(configuration: WorkerConfiguration, sessionCtxRef: Ref[I
         resume,
         stop,
         isRunning,
+        exitCode,
         nodeInfo,
         taskSpeed,
         initSession,
