@@ -22,19 +22,22 @@ class FCSHybridStrategy(val schedulingSystem: SchedulingSystem with WithTaskSpee
     private val waitBeforeMeasurementTime = config.taskSpeed.flatMap(_.waitBeforeMeasurement).getOrElse(100.millis)
     private val measurementAttempts = config.taskSpeed.flatMap(_.attempts).getOrElse(1)
 
-
-    override def execute(nodes: Vector[Node], tasks: Vector[(TaskName, File)]): IO[Unit] = for {
+    private def preStage(nodes: Vector[Node], tasks: Vector[StrategyTask]): IO[Iterable[WorkerNode]] = for {
         sTasksWithNode <- tasks.zipWithIndex.view
             .map { case (sTask, idx) => (nodes(idx % nodes.size), sTask) }
-            .map { case (node, sTask) => (sTask.pure[IO], schedulingSystem.buildTaskFromTuple(node)(sTask)).tupled}
+            .map { case (node, sTask) => (sTask.pure[IO], schedulingSystem.buildTaskFromTuple(node)(sTask)).tupled }
             .toVector
             .parSequence
 
         initTasksPartition = sTasksWithNode.groupBy(_._2.node)
         nodeTasksInfos <- initTasksPartition.toVector.parMap(x => (x._1.pure[IO], (nodeTasksInfo _).tupled(x)).tupled)
-        workerNodes = initWorkerNodes(nodeTasksInfos)
-        action <- workerNodes.toList.parMap(_.execute) >> IO.unit
-    } yield action
+    } yield initWorkerNodes(nodeTasksInfos)
+
+    override def execute(nodes: Vector[Node], tasks: Vector[(TaskName, File)]): IO[Strategy.PartialInfo] = for {
+        preStageWithTime <- preStage(nodes, tasks).withTime
+        (workerNodes, preStageTime) = preStageWithTime
+        _ <- workerNodes.toList.parMap(_.execute)
+    } yield Strategy.PartialInfo(Some(preStageTime))
 
     private def nodeTasksInfo(node: Node, tasks: Vector[(StrategyTask, Task.Built)]): IO[TasksInfo] = {
         val measurer = new SpeedMeasurer(log.debug(node.id)(_), schedulingSystem, measurementTime, measurementAttempts, waitBeforeMeasurementTime)

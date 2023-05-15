@@ -5,6 +5,7 @@ import cats.implicits._
 import ru.skelantros.coscheduler.logging.DefaultLogger
 import ru.skelantros.coscheduler.main.Configuration
 import ru.skelantros.coscheduler.main.implicits._
+import ru.skelantros.coscheduler.main.strategy.Strategy
 import ru.skelantros.coscheduler.main.strategy.combination._
 import ru.skelantros.coscheduler.main.system.{SchedulingSystem, WithTaskSpeedEstimate}
 import ru.skelantros.coscheduler.model.{Node, Task}
@@ -19,7 +20,7 @@ class FCStrategy(val schedulingSystem: SchedulingSystem with WithTaskSpeedEstima
     private val waitBeforeMeasurementTime = config.taskSpeed.flatMap(_.waitBeforeMeasurement).getOrElse(100.millis)
     private val measurementAttempts = config.taskSpeed.flatMap(_.attempts).getOrElse(1)
 
-    override protected def singleNodeExecute(node: Node, tasks: Vector[Task.Built]): IO[Unit] =
+    override protected def singleNodeExecute(node: Node, tasks: Vector[Task.Built]): IO[Strategy.PartialInfo] =
         NodeWorker(node).execute(tasks)
 
     private case class NodeWorker(node: Node) {
@@ -53,7 +54,7 @@ class FCStrategy(val schedulingSystem: SchedulingSystem with WithTaskSpeedEstima
             action <- combinationOpt.fold(IO.unit)(c => goContinue(tasks, c.combination, combinations))
         } yield action
 
-        def execute(builtTasks: Vector[Task.Built]): IO[Unit] = for {
+        private def preStage(builtTasks: Vector[Task.Built]): IO[(Vector[Task.Created], TreeSet[CombinationWithSpeed])] = for {
             _ <- IO(require(builtTasks.size < 65 && builtTasks.forall(_.node == node)))
             tasks <- builtTasks.parMap { task =>
                 for {
@@ -62,9 +63,14 @@ class FCStrategy(val schedulingSystem: SchedulingSystem with WithTaskSpeedEstima
                     pause <- schedulingSystem.savePauseTask(start)
                 } yield pause
             }
-            combinations <- measurer.measureCombinationSpeeds(tasks)
-            action <- go(tasks.toSet, combinations)
-        } yield action
+            combinationsWithTime <- measurer.measureCombinationSpeeds(tasks)
+        } yield (tasks, combinationsWithTime)
+
+        def execute(builtTasks: Vector[Task.Built]): IO[Strategy.PartialInfo] = for {
+            preStageRes <- preStage(builtTasks).withTime
+            ((tasks, combinations), preStageTime) = preStageRes
+            _ <- go(tasks.toSet, combinations)
+        } yield Strategy.PartialInfo(Some(preStageTime))
     }
 }
 

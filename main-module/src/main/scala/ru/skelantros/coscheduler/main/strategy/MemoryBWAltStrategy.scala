@@ -19,13 +19,18 @@ class MemoryBWAltStrategy(val schedulingSystem: SchedulingSystem with WithMmbwmo
     private val threshold = config.mmbwmon.flatMap(_.threshold).getOrElse(0.9)
     private val delay = config.mmbwmon.flatMap(_.retryDelay).getOrElse(500.millis)
 
-    override def execute(nodes: Vector[Node], tasks: Vector[StrategyTask]): IO[Unit] = for {
+    private def preStage(nodes: Vector[Node], tasks: Vector[StrategyTask]): IO[Vector[WorkerNode]] = for {
         sharedTasksRef <- Ref.of[IO, SharedTasks](tasks.toSet)
         nodesWithBwResults <- nodes.map(benchmarkAllTasks(tasks)).parSequence
         workerNodes <- nodesWithBwResults.parMap((WorkerNode(sharedTasksRef) _).tupled)
+    } yield workerNodes
+
+    override def execute(nodes: Vector[Node], tasks: Vector[StrategyTask]): IO[Strategy.PartialInfo] = for {
+        preStageWithTime <- preStage(nodes, tasks).withTime
+        (workerNodes, preStageTime) = preStageWithTime
         tasksToWait <- workerNodes.parMap(_.execute)
-        action <- tasksToWait.flatten.parMap(schedulingSystem.waitForTask) >> IO.unit
-    } yield action
+        _ <- tasksToWait.flatten.parMap(schedulingSystem.waitForTask)
+    } yield Strategy.PartialInfo(Some(preStageTime))
 
     private def benchmarkAllTasks(tasks: Vector[StrategyTask])(node: Node): IO[(Node, Vector[NodeTask])] = for {
         createdTasks <- tasks.parMap { sTask =>
