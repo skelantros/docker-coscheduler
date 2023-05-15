@@ -1,7 +1,7 @@
 package ru.skelantros.coscheduler.main
 
 import ru.skelantros.coscheduler.logging.Logger
-import ru.skelantros.coscheduler.main.Configuration.{LoggingOptions, MmbwmonOptions, SpeedTest, TasksTest}
+import ru.skelantros.coscheduler.main.Configuration.{LoggingOptions, MakeExperiment, MmbwmonOptions, SpeedTest, TasksTest}
 import ru.skelantros.coscheduler.main.strategy.Strategy.StrategyTask
 import sttp.model.Uri
 
@@ -15,7 +15,9 @@ case class Configuration(
     logging: Option[LoggingOptions],
     speedTest: Option[SpeedTest],
     mmbwmon: Option[MmbwmonOptions],
-    tasksTest: Option[TasksTest]
+    tasksTest: Option[TasksTest],
+    experiment: Option[Experiment],
+    makeExperiment: Option[MakeExperiment]
 ) {
     val schedulingSystemLogging: Logger.Config =
         logging.flatMap(_.schedulingSystem).getOrElse(Logger.defaultConfig)
@@ -41,4 +43,15 @@ object Configuration {
     case class TasksTest(tasks: Vector[StrategyTask], nodeUri: Uri, speedParams: Option[TasksTestParams], mmbwmon: Option[TasksTestParams])
 
     case class TasksTestParams(attempts: Int, delay: FiniteDuration, time: FiniteDuration)
+
+    case class MakeExperiment(tasks: Vector[StrategyTask], count: Int)
+}
+
+case class Experiment(combinations: Seq[Experiment.Combination], testCases: Seq[Experiment.TestCase])
+
+object Experiment {
+    case class Combination(name: String, tasks: Vector[StrategyTask])
+    case class TestCase(title: String, attempts: Int, strategies: TestCaseStrategies, combination: String, randomize: Boolean)
+
+    case class TestCaseStrategies(seq: Boolean = false, seqAll: Boolean = false, fcs: Boolean = false, bw: Boolean = false, fcsHybrid: Boolean = false)
 }
