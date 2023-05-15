@@ -125,7 +125,7 @@ class FCSHybridStrategy(val schedulingSystem: SchedulingSystem with WithTaskSpee
                     builtTask <- schedulingSystem.buildTaskFromTuple(node)(sTask.toAllCores)
                     createdTask <- schedulingSystem.createTask(builtTask)
                     startedTask <- schedulingSystem.startTask(createdTask)
-                    _ <- log.debug(node.id)(s"Task ${startedTask.title} has been started sequentially: $startedTask")
+                    _ <- log.debug(node.id)(s"Task ${startedTask.title}, ${sTask.toAllCores} has been started sequentially: $startedTask")
                     action <- schedulingSystem.waitForTask(startedTask) >> seqStage
                 } yield action
                 case None => IO.unit
