@@ -143,7 +143,7 @@ class MemoryBWStrategy(val schedulingSystem: SchedulingSystem with WithMmbwmon,
         } yield action
     }
 
-    override def execute(nodes: Vector[Node], tasks: Vector[(TaskName, File)]): IO[Strategy.PartialInfo] = for {
+    override def execute(nodes: Vector[Node], tasks: Vector[StrategyTask]): IO[Strategy.PartialInfo] = for {
         tasksRef <- Ref.of[IO, Set[StrategyTaskInfo]](tasks.map(StrategyTaskInfo(_)).toSet)
         tasksToWait <- nodes.map(NodeWorker(tasksRef)).map(_.start).parSequence
         _ <- tasksToWait.flatten.map(schedulingSystem.waitForTask).parSequence

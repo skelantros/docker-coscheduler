@@ -33,7 +33,7 @@ class FCSHybridStrategy(val schedulingSystem: SchedulingSystem with WithTaskSpee
         nodeTasksInfos <- initTasksPartition.toVector.parMap(x => (x._1.pure[IO], (nodeTasksInfo _).tupled(x)).tupled)
     } yield initWorkerNodes(nodeTasksInfos)
 
-    override def execute(nodes: Vector[Node], tasks: Vector[(TaskName, File)]): IO[Strategy.PartialInfo] = for {
+    override def execute(nodes: Vector[Node], tasks: Vector[StrategyTask]): IO[Strategy.PartialInfo] = for {
         preStageWithTime <- preStage(nodes, tasks).withTime
         (workerNodes, preStageTime) = preStageWithTime
         _ <- workerNodes.toList.parMap(_.execute)
@@ -122,7 +122,7 @@ class FCSHybridStrategy(val schedulingSystem: SchedulingSystem with WithTaskSpee
             taskOpt <- seqStateTask()
             action <- taskOpt match {
                 case Some(sTask) => for {
-                    builtTask <- schedulingSystem.buildTaskFromTuple(node)(sTask)
+                    builtTask <- schedulingSystem.buildTaskFromTuple(node)(sTask.toAllCores)
                     createdTask <- schedulingSystem.createTask(builtTask)
                     startedTask <- schedulingSystem.startTask(createdTask)
                     _ <- log.debug(node.id)(s"Task ${startedTask.title} has been started sequentially: $startedTask")

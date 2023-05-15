@@ -40,7 +40,11 @@ trait Strategy extends DefaultLogger {
 
 object Strategy {
     type TaskName = String
-    type StrategyTask = (TaskName, File)
+    case class StrategyTask(title: TaskName, dir: File, allCoresDir: Option[File] = None) {
+        val _1: TaskName = title
+        val _2: File = dir
+        def toAllCores: StrategyTask = allCoresDir.fold(this)(StrategyTask(title, _, None))
+    }
 
     case class PartialInfo(preStageTime: Option[FiniteDuration]) {
         def toInfo(totalTime: FiniteDuration): Info = Info(totalTime, this.preStageTime)

@@ -19,7 +19,7 @@ trait SchedulingSystem extends Logger {
             .use(imageArchive => buildTask(node)(imageArchive, taskName))
     }
     def buildTaskFromTuple(node: Node)(strategyTask: StrategyTask): IO[Task.Built] =
-        (buildTaskFromDir(node) _).tupled(strategyTask.swap)
+        buildTaskFromDir(node)(strategyTask.dir, strategyTask.title)
 
     def createTask(task: Task.Built, cpuset: Option[CpuSet] = None): IO[Task.Created]
     def startTask(task: Task.Created): IO[Task.Created]

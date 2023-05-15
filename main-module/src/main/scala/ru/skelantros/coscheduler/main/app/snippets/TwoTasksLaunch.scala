@@ -8,6 +8,7 @@ import ru.skelantros.coscheduler.main.implicits._
 import ru.skelantros.coscheduler.main.system.HttpSchedulingSystem
 import ru.skelantros.coscheduler.model.CpuSet
 import sttp.client3.UriContext
+import ru.skelantros.coscheduler.main.strategy.Strategy.StrategyTask
 
 import java.io.File
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
@@ -18,8 +19,8 @@ object TwoTasksLaunch extends IOApp with DefaultLogger with WithConfigLoad {
     override def run(args: List[String]): IO[ExitCode] = {
         val system = HttpSchedulingSystem.withLogging(loadConfiguration(args).get)
 
-        val task1 = ("BT-C", new File("/home/skelantros/coscheduler/tasks/BT-C"))
-        val task2 = ("LU-C", new File("/home/skelantros/coscheduler/tasks/LU-C"))
+        val task1 = StrategyTask("BT-C", new File("/home/skelantros/coscheduler/tasks/BT-C"), None)
+        val task2 = StrategyTask("LU-C", new File("/home/skelantros/coscheduler/tasks/LU-C"), None)
         val nodeUri = uri"http://192.168.0.103:6789"
 
         def runTasks(cpuSet1: Option[CpuSet], cpuSet2: Option[CpuSet], measureDuration: FiniteDuration, delay: FiniteDuration): IO[Unit] = for {
