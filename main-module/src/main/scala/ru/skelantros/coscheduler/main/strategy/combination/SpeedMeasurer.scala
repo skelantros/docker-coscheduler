@@ -14,14 +14,18 @@ class SpeedMeasurer(log: String => IO[Unit],
                     measurementTime: FiniteDuration,
                     measurementAttempts: Int,
                     waitBeforeMeasurementTime: FiniteDuration) {
-    def measureCombinationSpeed(combination: Combination): IO[CombinationWithSpeed] = for {
+
+    private val optSum = (x: Option[Double], y: Option[Double]) => x.map2(y)(_ + _)
+
+    def measureCombinationSpeed(combination: Combination): IO[Option[CombinationWithSpeed]] = for {
         runTasks <- combination.genParMap(_.toList)(schedulingSystem.saveResumeTask)
         _ <- IO.unit.delayBy(waitBeforeMeasurementTime) // возможно не нужно
-        taskSpeeds <- runTasks.parMap(schedulingSystem.speedOf(measurementTime, measurementAttempts))
-        _ <- log(s"${combination.map(_.title).mkString(",")}: taskSpeeds = $taskSpeeds")
+        taskSpeedsOpt <- runTasks.parMap(schedulingSystem.saveSpeedOf(measurementTime, measurementAttempts))
+        totalSpeedOpt = taskSpeedsOpt.foldLeft(Option(0d))(optSum)
+        _ <- log(s"${combination.map(_.title).mkString(",")}: taskSpeeds = $taskSpeedsOpt")
         _ <- runTasks.parMap(schedulingSystem.savePauseTask)
-    } yield CombinationWithSpeed(combination, taskSpeeds.sum)
+    } yield totalSpeedOpt.map(CombinationWithSpeed(combination, _))
 
     def measureCombinationSpeeds(tasks: Vector[Task.Created]): IO[TreeSet[CombinationWithSpeed]] =
-        makeCombinations(tasks).map(measureCombinationSpeed).toList.sequence.map(CombinationWithSpeed.treeSet)
+        makeCombinations(tasks).map(measureCombinationSpeed).toList.sequence.map(_.flatten).map(CombinationWithSpeed.treeSet)
 }

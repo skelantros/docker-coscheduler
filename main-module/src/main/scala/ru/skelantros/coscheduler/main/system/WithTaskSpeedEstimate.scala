@@ -9,6 +9,9 @@ import scala.concurrent.duration.FiniteDuration
 trait WithTaskSpeedEstimate { this: SchedulingSystem =>
     def speedOf(duration: FiniteDuration, attempts: Int)(task: Task.Created): IO[TaskSpeed]
     def speedOf(duration: FiniteDuration)(task: Task.Created): IO[TaskSpeed] = speedOf(duration, 1)(task)
+
+    def saveSpeedOf(duration: FiniteDuration, attempts: Int)(task: Task.Created): IO[Option[TaskSpeed]] =
+        speedOf(duration, attempts)(task).option
 }
 
 object WithTaskSpeedEstimate {
