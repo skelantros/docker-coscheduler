@@ -20,7 +20,7 @@ class MmbwmonServerLogic(configuration: WorkerConfiguration)(implicit ec: Execut
     private def mqttClient(hostUri: Uri, clientId: String) =
         Resource.fromAutoCloseable(IO(new MqttClient(hostUri.toString, clientId)))
 
-    final val measure = serverLogic(MmbwmonEndpoints.measure) { _ =>
+    final val measure = serverLogic(MmbwmonEndpoints.measure) { cpuSetOpt =>
         configuration.mqttUri match {
             case Some(hostUri) =>
                 val action = for {
@@ -28,7 +28,7 @@ class MmbwmonServerLogic(configuration: WorkerConfiguration)(implicit ec: Execut
                     clientId = s"${configuration.node.id}-$uuid"
                     // TODO создается большое количество клиентов, что может негативно повлиять на работу системы
                     resultOpt <- mqttClient(hostUri, clientId).use { client =>
-                        IO.fromFuture(IO(MmbwmonMeasurer(clientId, client)))
+                        IO.fromFuture(IO(MmbwmonMeasurer(clientId, client, cpuSetOpt)))
                     }
                     result <- resultOpt.fold(IO.raiseError[Double](new Exception(s"Incorrect mmbwmon result.")))(IO.pure(_))
                 } yield ServerResponse(result)

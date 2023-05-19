@@ -6,6 +6,7 @@ import sttp.tapir.CodecFormat.TextPlain
 
 case class CpuSet(from: Int, count: Int) {
     def asString: String = s"$from-${from + count - 1}"
+    def cores: Range = from until (from + count)
 }
 
 object CpuSet {

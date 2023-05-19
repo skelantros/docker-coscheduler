@@ -1,6 +1,7 @@
 package ru.skelantros.coscheduler.worker.measurer
 
 import org.eclipse.paho.client.mqttv3._
+import ru.skelantros.coscheduler.model.CpuSet
 
 import scala.concurrent.{ExecutionContext, Future, Promise}
 import scala.sys.process._
@@ -11,11 +12,15 @@ object MmbwmonMeasurer {
     private val requestTopic = s"fast/agent/$hostname/mmbwmon/request"
     private val responseTopic = s"fast/agent/$hostname/mmbwmon/response"
 
-    def apply(requestId: String, mqttClient: MqttClient)(implicit ec: ExecutionContext): Future[Option[Double]] = {
-        val msg =
-            s"""cores:
-               |  - 0
-               |id: $requestId""".stripMargin
+    private def yaml(id: String, cpuSetOpt: Option[CpuSet]): String = {
+        val cores = cpuSetOpt.getOrElse(CpuSet(0, 1)).cores
+        s"""cores:
+           |${cores.map(i => s"  - $i").mkString("\n")}
+           |id: $id""".stripMargin
+    }
+
+    def apply(requestId: String, mqttClient: MqttClient, cpuSet: Option[CpuSet])(implicit ec: ExecutionContext): Future[Option[Double]] = {
+        val msg = yaml(requestId, cpuSet)
 
         val mqttMsg = new MqttMessage(msg.getBytes)
         mqttMsg.setQos(2)

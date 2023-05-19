@@ -101,7 +101,7 @@ class MemoryBWStrategy(val schedulingSystem: SchedulingSystem with WithMmbwmon,
             builtTask <- schedulingSystem.buildTaskFromTuple(node)(taskInfo.task)
             createdTask <- schedulingSystem.createTask(builtTask, Some(CpuSet(1, node.cores - 1)))
             startedTask <- schedulingSystem.startTask(createdTask)
-            benchmarkResult <- schedulingSystem.avgMmbwmon(node)(bmAttempts)
+            benchmarkResult <- schedulingSystem.avgMmbwmon(node, CpuSet(0, 1))(bmAttempts)
             action <- atomicRefAction(tasksCountRef) { tasksCount =>
                 if (tasksCount > 0 && benchmarkResult > bwThreshold)
                     log(s"task $taskInfo will be stopped and migrated") >> migrateTask(taskInfo, startedTask) >> IO.pure(None)

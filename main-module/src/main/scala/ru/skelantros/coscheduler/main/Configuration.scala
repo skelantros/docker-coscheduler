@@ -36,7 +36,7 @@ object Configuration {
          strategy: Option[Logger.Config]
     )
 
-    case class MmbwmonOptions(waitBeforeMeasurement: Option[FiniteDuration], attempts: Option[Int], retryDelay: Option[FiniteDuration], threshold: Option[Double])
+    case class MmbwmonOptions(waitBeforeMeasurement: Option[FiniteDuration], attempts: Option[Int], retryDelay: Option[FiniteDuration], threshold: Option[Double], coresCount: Int)
 
     case class SpeedTest(tasks: Vector[StrategyTask], params: TaskSpeed, nodeUri: Uri)
 
@@ -47,7 +47,7 @@ object Configuration {
     case class MakeExperiment(tasks: Vector[StrategyTask], count: Int)
 }
 
-case class Experiment(combinations: Seq[Experiment.Combination], testCases: Seq[Experiment.TestCase])
+case class Experiment(combinations: Seq[Experiment.Combination], testCases: Seq[Experiment.TestCase], mmbwmonCores: Int = 1)
 
 object Experiment {
     case class Combination(name: String, tasks: Vector[StrategyTask])

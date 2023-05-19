@@ -35,14 +35,14 @@ trait LoggingSchedulingSystem extends SchedulingSystem with WithMmbwmon with Wit
     abstract override def waitForTask(task: Task.Created): IO[Long] =
         super.waitForTask(task) <* log.debug("")(s"waitForTask($task)")
 
-    abstract override def mmbwmon(node: Node): IO[Double] = for {
-        result <- super.mmbwmon(node)
-        _ <- log.debug("")(s"ramBenchmark($node) = $result")
+    abstract override def mmbwmon(node: Node, cpuSet: CpuSet): IO[Double] = for {
+        result <- super.mmbwmon(node, cpuSet)
+        _ <- log.debug("")(s"ramBenchmark($node, $cpuSet) = $result")
     } yield result
 
-    override def avgMmbwmon(node: Node)(attempts: Int): IO[Double] = for {
-        result <- super.avgMmbwmon(node)(attempts)
-        _ <- log.debug("")(s"avgRamBenchmark($node) = $result")
+    override def avgMmbwmon(node: Node, cpuSet: CpuSet)(attempts: Int): IO[Double] = for {
+        result <- super.avgMmbwmon(node, cpuSet)(attempts)
+        _ <- log.debug("")(s"avgRamBenchmark($node, $cpuSet)($attempts) = $result")
     } yield result
 
     abstract override def speedOf(duration: FiniteDuration)(task: Task.Created): IO[TaskSpeed] = for {

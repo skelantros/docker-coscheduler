@@ -13,11 +13,15 @@ import ru.skelantros.coscheduler.model.{CpuSet, Node, Task}
 import scala.annotation.tailrec
 import scala.concurrent.duration.DurationInt
 
-class MemoryBWAltStrategy(val schedulingSystem: SchedulingSystem with WithMmbwmon, val config: Configuration) extends Strategy {
+class MemoryBWAltStrategy(val schedulingSystem: SchedulingSystem with WithMmbwmon, val config: Configuration, mmbwmonCores: Option[Int] = None) extends Strategy {
     private val waitBeforeMmbwmon = config.mmbwmon.flatMap(_.waitBeforeMeasurement).getOrElse(250.millis)
     private val mmbwmonAttempts = config.mmbwmon.flatMap(_.attempts).getOrElse(5)
     private val threshold = config.mmbwmon.flatMap(_.threshold).getOrElse(0.9)
     private val delay = config.mmbwmon.flatMap(_.retryDelay).getOrElse(500.millis)
+
+    private val coresCount = (mmbwmonCores orElse config.mmbwmon.map(_.coresCount)).get
+    private val mmbwmonCpuSet = CpuSet(0, coresCount)
+    private def taskBenchCpuSet(node: Node): CpuSet = CpuSet(coresCount, node.cores - coresCount)
 
     private def preStage(nodes: Vector[Node], tasks: Vector[StrategyTask]): IO[Vector[WorkerNode]] = for {
         sharedTasksRef <- Ref.of[IO, SharedTasks](tasks.toSet)
@@ -36,7 +40,7 @@ class MemoryBWAltStrategy(val schedulingSystem: SchedulingSystem with WithMmbwmo
         createdTasks <- tasks.parMap { sTask =>
             (
                 schedulingSystem.buildTaskFromTuple(node)(sTask)
-                .flatMap(schedulingSystem.createTask(_, Some(CpuSet(1, node.cores - 1)))),
+                .flatMap(schedulingSystem.createTask(_, Some(taskBenchCpuSet(node)))),
                 sTask.pure[IO]
             ).tupled
         }
@@ -46,7 +50,7 @@ class MemoryBWAltStrategy(val schedulingSystem: SchedulingSystem with WithMmbwmo
 
     private def benchmarkTask(node: Node)(createdTask: Task.Created, sTask: StrategyTask): IO[NodeTask] = for {
         startedTask <- schedulingSystem.startTask(createdTask)
-        benchmarkResult <- schedulingSystem.avgMmbwmon(node)(mmbwmonAttempts).delayBy(waitBeforeMmbwmon)
+        benchmarkResult <- schedulingSystem.avgMmbwmon(node, mmbwmonCpuSet)(mmbwmonAttempts).delayBy(waitBeforeMmbwmon)
         pausedTask <- schedulingSystem.savePauseTask(startedTask)
         // после бенчмарка выдаем задаче в пользование все ядра. хуже не станет
         updatedCpusTask <- schedulingSystem.updateCpus(pausedTask, CpuSet(0, node.cores))
@@ -142,6 +146,9 @@ class MemoryBWAltStrategy(val schedulingSystem: SchedulingSystem with WithMmbwmo
 object MemoryBWAltStrategy {
     def apply(schedulingSystem: SchedulingSystem with WithMmbwmon, config: Configuration): MemoryBWAltStrategy =
         new MemoryBWAltStrategy(schedulingSystem, config)
+
+    def apply(schedulingSystem: SchedulingSystem with WithMmbwmon, config: Configuration, mmbwmonCores: Int): MemoryBWAltStrategy =
+        new MemoryBWAltStrategy(schedulingSystem, config, Some(mmbwmonCores))
 
     private type SharedTasks = Set[StrategyTask]
 }

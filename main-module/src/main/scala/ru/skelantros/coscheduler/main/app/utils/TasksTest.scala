@@ -19,7 +19,7 @@ object TasksTest extends IOApp with WithConfigLoad with DefaultLogger {
         val tasksTestConfig = config.tasksTest.get
 
         def mmbwmonMeasure(task: Task.Created, node: Node, attempts: Int)(currentMeasures: List[Double]): IO[List[Double]] = for {
-            result <- schedulingSystem.avgMmbwmon(node)(attempts)
+            result <- schedulingSystem.avgMmbwmon(node, CpuSet(0, 1))(attempts)
             _ <- log.debug(task.title)(s"mmbwmon: $result")
             isRunning <- schedulingSystem.isRunning(task)
         } yield if(isRunning) result :: currentMeasures else currentMeasures
