@@ -2,7 +2,7 @@ package ru.skelantros.coscheduler.main.system
 import cats.effect.IO
 import ru.skelantros.coscheduler.model.{CpuSet, Node, SessionContext, Task}
 import ru.skelantros.coscheduler.image.ImageArchive
-import ru.skelantros.coscheduler.logging.Logger
+import ru.skelantros.coscheduler.logging.{DefaultLogger, Logger}
 import ru.skelantros.coscheduler.main.Configuration
 import ru.skelantros.coscheduler.main.system.WithTaskSpeedEstimate.TaskSpeed
 import ru.skelantros.coscheduler.worker.endpoints.{AppEndpoint, MmbwmonEndpoints, WorkerEndpoints}
@@ -16,10 +16,13 @@ import scala.concurrent.duration.FiniteDuration
 class HttpSchedulingSystem(val config: Configuration)
     extends SchedulingSystem
     with WithMmbwmon
-    with WithTaskSpeedEstimate {
+    with WithTaskSpeedEstimate
+    with DefaultLogger {
 
     private val client = Http4sBackend.usingDefaultEmberClientBuilder[IO]()
     private val inter = SttpClientInterpreter()
+
+    override def loggerConfig: Logger.Config = config.schedulingSystemLogging
 
     private def makeRequest[I, O](uri: Uri, endpoint: AppEndpoint[I, O])(input: I): IO[O] = for {
         route <- IO(inter.toRequest(endpoint, Some(uri)))
@@ -39,37 +42,48 @@ class HttpSchedulingSystem(val config: Configuration)
         makeRequest(uri, WorkerEndpoints.nodeInfo)(()).map(_.copy(uri = uri))
 
     override def buildTask(node: Node)(image: ImageArchive, taskName: String): IO[Task.Built] =
-        makeRequest(node.uri, WorkerEndpoints.build)(image, taskName).map(_.copy(node = node))
+        makeRequest(node.uri, WorkerEndpoints.build)(image, taskName).map(_.updatedNode(node = node))
 
     override def createTask(task: Task.Built, cpuset: Option[CpuSet] = None): IO[Task.Created] =
-        makeRequest(task.node.uri, WorkerEndpoints.create)(task, cpuset).map(_.copy(node = task.node))
+        makeRequest(task.node.uri, WorkerEndpoints.create)(task, cpuset).map(_.updatedNode(task.node))
 
     override def startTask(task: Task.Created): IO[Task.Created] =
-        makeRequest(task.node.uri, WorkerEndpoints.start)(task).map(_.copy(node = task.node))
+        makeRequest(task.node.uri, WorkerEndpoints.start)(task).map(_.updatedNode(task.node))
 
     override def pauseTask(task: Task.Created): IO[Task.Created] =
-        makeRequest(task.node.uri, WorkerEndpoints.pause)(task).map(_.copy(node = task.node))
+        makeRequest(task.node.uri, WorkerEndpoints.pause)(task).map(_.updatedNode(task.node))
 
     override def resumeTask(task: Task.Created): IO[Task.Created] =
-        makeRequest(task.node.uri, WorkerEndpoints.resume)(task).map(_.copy(node = task.node))
+        makeRequest(task.node.uri, WorkerEndpoints.resume)(task).map(_.updatedNode(task.node))
 
     override def stopTask(task: Task.Created): IO[Task.Created] =
-        makeRequest(task.node.uri, WorkerEndpoints.stop)(task).map(_.copy(node = task.node))
+        makeRequest(task.node.uri, WorkerEndpoints.stop)(task).map(_.updatedNode(task.node))
 
-    override def waitForTask(task: Task.Created): IO[Boolean] = {
-        def go(task: Task.Created): IO[Boolean] =
+
+    override def waitForTask(task: Task.Created): IO[Long] = {
+        def go(task: Task.Created): IO[Long] =
             for {
                 isRunning <- makeRequest(task.node.uri, WorkerEndpoints.isRunning)(task)
                 res <-
                     if(isRunning) go(task).delayBy(config.waitForTaskDelay)
-                    else IO.pure(true)
+                    else checkExitCode(task)
             } yield res
 
         go(task)
     }
 
-    override def isRunning(task: Task.Created): IO[Boolean] =
-        makeRequest(task.node.uri, WorkerEndpoints.isRunning)(task)
+    private def checkExitCode(task: Task.Created): IO[Long] = for {
+        exitCode <- makeRequest(task.node.uri, WorkerEndpoints.exitCode)(task)
+        _ <-
+            if(exitCode != 0) log.error("")(s"Task ${task.title} (${task.node.id}, ${task.containerId}) has been completed with code $exitCode.")
+            else IO.unit
+    } yield exitCode
+
+
+    override def isRunning(task: Task.Created): IO[Boolean] = for {
+        result <- makeRequest(task.node.uri, WorkerEndpoints.isRunning)(task)
+        _ <- if(!result) checkExitCode(task) else IO.unit
+    } yield result
 
 
     override def updateCpus(task: Task.Created, cpuSet: CpuSet): IO[Task.Created] =
@@ -89,7 +103,5 @@ class HttpSchedulingSystem(val config: Configuration)
 
 object HttpSchedulingSystem {
     def withLogging(config: Configuration): HttpSchedulingSystem with LoggingSchedulingSystem =
-        new HttpSchedulingSystem(config) with LoggingSchedulingSystem {
-            override def loggerConfig: Logger.Config = config.schedulingSystemLogging
-        }
+        new HttpSchedulingSystem(config) with LoggingSchedulingSystem
 }

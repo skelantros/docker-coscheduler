@@ -13,17 +13,17 @@ import ru.skelantros.coscheduler.model.{Node, Task}
  */
 trait ParallelStrategy extends Strategy {
 
-    protected def singleNodeExecute(node: Node, tasks: Vector[Task.Built]): IO[Unit]
+    protected def singleNodeExecute(node: Node, tasks: Vector[Task.Built]): IO[Strategy.PartialInfo]
 
-    override def execute(nodes: Vector[Node], tasks: Vector[StrategyTask]): IO[Unit] = for {
+    override def execute(nodes: Vector[Node], tasks: Vector[StrategyTask]): IO[Strategy.PartialInfo] = for {
         sTasksWithNode <- tasks.zipWithIndex.view
             .map { case (sTask, idx) => (nodes(idx % nodes.size), sTask) }
             .map(Function.uncurried(schedulingSystem.buildTaskFromTuple _).tupled)
             .toVector
             .parSequence
-        action <- sTasksWithNode.groupBy(_.node)
+        partialInfos <- sTasksWithNode.groupBy(_.node)
             .map((singleNodeExecute _).tupled)
             .toList
-            .parSequence >> IO.unit
-    } yield action
+            .parSequence
+    } yield Strategy.PartialInfo(partialInfos.map(_.preStageTime).max)
 }

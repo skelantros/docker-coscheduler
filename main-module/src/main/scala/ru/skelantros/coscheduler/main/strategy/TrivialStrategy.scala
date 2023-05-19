@@ -8,7 +8,7 @@ import ru.skelantros.coscheduler.main.system.SchedulingSystem
 import ru.skelantros.coscheduler.model.Node
 
 class TrivialStrategy(val schedulingSystem: SchedulingSystem, val config: Configuration) extends Strategy {
-    override def execute(nodes: Vector[Node], tasks: Vector[StrategyTask]): IO[Unit] = {
+    override def execute(nodes: Vector[Node], tasks: Vector[StrategyTask]): IO[Strategy.PartialInfo] = {
         for {
             result <- tasks.zipWithIndex.map {
                 case (taskWithName, idx) =>
@@ -18,7 +18,7 @@ class TrivialStrategy(val schedulingSystem: SchedulingSystem, val config: Config
                         startedTask <- schedulingSystem.startTask(createdTask)
                         _ <- schedulingSystem.waitForTask(startedTask)
                     } yield ()
-            }.parSequence >> IO.unit
+            }.parSequence >> IO.pure(Strategy.PartialInfo(None))
         } yield  result
     }
 }

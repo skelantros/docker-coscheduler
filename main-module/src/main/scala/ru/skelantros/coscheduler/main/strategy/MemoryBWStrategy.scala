@@ -57,6 +57,7 @@ import scala.concurrent.duration.DurationInt
  * Основной поток ожидает, пока все задачи будут запущены (т.е. когда все планировщики вернут списки запущенных
  * задач), и затем ожидает выполнения всех задач. Когда все задачи закончат выполнение, программа завершает выполнение.
  */
+@deprecated
 class MemoryBWStrategy(val schedulingSystem: SchedulingSystem with WithMmbwmon,
                        val config: Configuration) extends Strategy { self =>
     private val bmAttempts = config.mmbwmon.flatMap(_.attempts).getOrElse(5)
@@ -142,11 +143,11 @@ class MemoryBWStrategy(val schedulingSystem: SchedulingSystem with WithMmbwmon,
         } yield action
     }
 
-    override def execute(nodes: Vector[Node], tasks: Vector[(TaskName, File)]): IO[Unit] = for {
+    override def execute(nodes: Vector[Node], tasks: Vector[StrategyTask]): IO[Strategy.PartialInfo] = for {
         tasksRef <- Ref.of[IO, Set[StrategyTaskInfo]](tasks.map(StrategyTaskInfo(_)).toSet)
         tasksToWait <- nodes.map(NodeWorker(tasksRef)).map(_.start).parSequence
-        action <- tasksToWait.flatten.map(schedulingSystem.waitForTask).parSequence >> IO.unit
-    } yield action
+        _ <- tasksToWait.flatten.map(schedulingSystem.waitForTask).parSequence
+    } yield Strategy.PartialInfo(None)
 }
 
 object MemoryBWStrategy {

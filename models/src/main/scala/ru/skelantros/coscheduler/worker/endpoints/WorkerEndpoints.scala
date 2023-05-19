@@ -43,6 +43,11 @@ object WorkerEndpoints {
         .in(createdBody)
         .out(jsonBody[Boolean])
 
+    final val exitCode = baseEndpoint.post
+        .in("exit-code")
+        .in(createdBody)
+        .out(jsonBody[Long])
+
     final val nodeInfo = baseEndpoint.get
         .in("info")
         .out(jsonBody[Node])

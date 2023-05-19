@@ -32,11 +32,11 @@ class SequentialStrategy(val schedulingSystem: SchedulingSystem, val config: Con
         } yield action
     }
 
-    override def execute(nodes: Vector[Node], tasks: Vector[StrategyTask]): IO[Unit] =
+    override def execute(nodes: Vector[Node], tasks: Vector[StrategyTask]): IO[Strategy.PartialInfo] =
         for {
             tasksRef <- Ref[IO].of(tasks.toList)
             workers = nodes.map(SingleNodeWorker(tasksRef))
-            action <- workers.map(_.execute).parSequence >> IO.unit
+            action <- workers.map(_.execute).parSequence >> IO.pure(Strategy.PartialInfo(None))
         } yield action
 }
 

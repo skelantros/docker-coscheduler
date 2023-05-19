@@ -21,7 +21,7 @@ object IPCMeasurer {
     }
 
     private def measureIPC(cpuSet: Option[CpuSet], time: FiniteDuration): Option[Double] = {
-        val coresFlags = cpuSet.fold("-a" :: Nil)(cs => "-c" :: cs.asString :: Nil)
+        val coresFlags = cpuSet.fold("-a" :: Nil)(cs => "-C" :: cs.asString :: Nil)
         // perf stat -B -a dd if=/dev/zero of=/dev/null count=1000000
         val cmd = "perf" :: "stat" :: "-B" :: coresFlags ::: "dd" :: "if=/dev/zero" :: "of=/dev/null" :: s"count=${time.toMicros}" :: Nil
 
