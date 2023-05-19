@@ -80,7 +80,7 @@ class FCSHybridStrategy(val schedulingSystem: SchedulingSystem with WithTaskSpee
 
 
         private def logCwsSet(sTasks: Set[StrategyTask], cwsSet: TreeSet[CombinationWithSpeed]): IO[Unit] =
-            log.debug(node.id)(s"Non-run tasks are ${sTasks.map(_._1).mkString("\n")}. Current combinations are:${cwsSet.mkString("\n")}")
+            log.debug(node.id)(s"Non-run tasks are ${sTasks.map(_._1).mkString(",")}. Current combinations are:${cwsSet.mkString("\n")}")
 
         private val fcsStageCombination: IO[Option[Combination]] = tasksInfo.modify { case ti @ (sTasks, cwsSet) =>
             cwsSet.maxOption match {

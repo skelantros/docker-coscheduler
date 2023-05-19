@@ -60,7 +60,7 @@ object ExperimentApp extends IOApp with WithConfigLoad with DefaultLogger {
             _ <- if(strategies.seq) singleRun(seq, testCase, attempt, Some("seq"))(comb) else IO.unit
             _ <- if(strategies.seqAll) singleRun(seq, testCase, attempt, Some("seqAll"))(comb.map(_.toAllCores)) else IO.unit
         } yield ()
-    }
+    }.handleErrorWith { t => log.error("")(s"Attempt $attempt of test case ${testCase.title} failed with error $t:\n${t.getStackTrace.mkString("\n")}")}
 
     private def runTestCase(fcs: FCStrategy, fcsHybrid: FCSHybridStrategy, bw: MemoryBWAltStrategy, seq: SequentialStrategy)(testCase: ParsedTestCase): IO[Unit] =
         (1 to testCase.attempts).map(singleAttempt(fcs, fcsHybrid, bw, seq)(testCase, _)).toList.sequence >> IO.unit

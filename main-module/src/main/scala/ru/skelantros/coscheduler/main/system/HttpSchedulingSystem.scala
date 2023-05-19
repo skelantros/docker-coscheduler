@@ -59,25 +59,31 @@ class HttpSchedulingSystem(val config: Configuration)
     override def stopTask(task: Task.Created): IO[Task.Created] =
         makeRequest(task.node.uri, WorkerEndpoints.stop)(task).map(_.updatedNode(task.node))
 
+
     override def waitForTask(task: Task.Created): IO[Long] = {
         def go(task: Task.Created): IO[Long] =
             for {
                 isRunning <- makeRequest(task.node.uri, WorkerEndpoints.isRunning)(task)
                 res <-
                     if(isRunning) go(task).delayBy(config.waitForTaskDelay)
-                    else makeRequest(task.node.uri, WorkerEndpoints.exitCode)(task)
+                    else checkExitCode(task)
             } yield res
 
-        for {
-            exitCode <- go(task)
-            _ <-
-                if(exitCode != 0) log.error("")(s"Task ${task.title} (${task.containerId}) has been completed with code $exitCode.")
-                else IO.unit
-        } yield exitCode
+        go(task)
     }
 
-    override def isRunning(task: Task.Created): IO[Boolean] =
-        makeRequest(task.node.uri, WorkerEndpoints.isRunning)(task)
+    private def checkExitCode(task: Task.Created): IO[Long] = for {
+        exitCode <- makeRequest(task.node.uri, WorkerEndpoints.exitCode)(task)
+        _ <-
+            if(exitCode != 0) log.error("")(s"Task ${task.title} (${task.node.id}, ${task.containerId}) has been completed with code $exitCode.")
+            else IO.unit
+    } yield exitCode
+
+
+    override def isRunning(task: Task.Created): IO[Boolean] = for {
+        result <- makeRequest(task.node.uri, WorkerEndpoints.isRunning)(task)
+        _ <- if(!result) checkExitCode(task) else IO.unit
+    } yield result
 
 
     override def updateCpus(task: Task.Created, cpuSet: CpuSet): IO[Task.Created] =
